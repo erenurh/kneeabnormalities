@@ -8,5 +8,5 @@
   "enable_gpu": "true",
   "enable_internet": "false",
   "competition_sources": ["rsna-knee-abnormality-detection"],
-  "model_sources": ["qwen-lm/qwen-3/transformers/4b/1"]
+  "model_sources": ["qwen-lm/qwen-3/transformers/8b/1"]
 }

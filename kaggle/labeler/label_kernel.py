@@ -1,9 +1,8 @@
-"""LLM report labeler v1 (Qwen3-4B, offline, Kaggle GPU).
+"""LLM report labeler v2 (Qwen3-8B, offline, Kaggle T4x2).
 
-For each report, emits a grade 0-3 per finding:
-  0 = explicitly negative/absent, 1 = not mentioned,
-  2 = mentioned but mild/borderline/uncertain, 3 = clearly positive at threshold.
-Grades are mapped to probabilities later, calibrated on the gold-58.
+For each report, emits a grade 0-4 per finding with per-finding severity
+anchors (see SYSTEM). Grades are mapped to probabilities later, calibrated
+on the gold-58.
 
 SMOKE=True labels only the 58 gold studies; False labels everything.
 Output: /kaggle/working/grades.csv (StudyInstanceUID + 12 grade columns + raw).
@@ -31,24 +30,24 @@ MODEL = sorted(p.parent for p in INPUT.rglob("qwen*/**/config.json")) or \
         sorted(p.parent for p in INPUT.rglob("**/config.json"))
 print("comp root:", COMP[0], "| model root:", MODEL[0])
 
-SYSTEM = """You are an expert musculoskeletal radiologist. You will read a knee MRI radiology report (it may be in any language: English, Spanish, Turkish, Croatian, Greek, German, Bulgarian, Dutch, French, Bosnian) and grade 12 findings.
+SYSTEM = """You are an expert musculoskeletal radiologist. Read the knee MRI report (any language: English, Spanish, Turkish, Croatian, Greek, German, Bulgarian, Dutch, French, Bosnian) and grade 12 findings on a 0-4 scale:
 
-For each finding output an integer grade:
-0 = report explicitly states the finding is ABSENT/normal
-1 = report does not mention the finding at all
-2 = mentioned but MILD/borderline/low-grade/uncertain (below threshold)
-3 = clearly POSITIVE at or above the threshold below
+0 = explicitly stated ABSENT / normal
+1 = not mentioned at all
+2 = mentioned, but MILD / low-grade / trace / degenerative-only
+3 = moderate severity, OR probable/partial at the threshold boundary
+4 = severe / large / definite full abnormality
 
-Thresholds (a finding is 3 only if it meets these; below them use 2):
-- acl: high-grade partial or complete tear (discontinuity or >50% fibers). Mucoid degeneration/sprain/intact = 2 if mentioned abnormal.
-- mcl: high-grade or complete ACUTE tear. Low-grade sprain/chronic thickening = 2.
-- med_men / lat_men (medial/lateral meniscus): tear reaching the surface, or truncated/displaced/degenerated fragment. Intrasubstance signal only = 2.
-- med_oa / lat_oa / pf_oa (medial/lateral tibiofemoral, patellofemoral compartment osteoarthritis): substantial cartilage loss (high-grade chondropathy, grade 3-4, bone-on-bone, osteophytes with cartilage loss) in that compartment. Mild chondropathy grade 1-2 = 2.
-- effusion: moderate or large joint effusion. Trace/small/mild/minimal = 2.
-- synovitis: synovial thickening/inflammation stated.
-- bakers: moderate or large Baker's/popliteal cyst. Small cyst = 2.
-- contusion: bone marrow edema/bruise WITHOUT fracture line.
-- fracture: acute fracture line/cortical break.
+Per-finding anchors (use the report's own wording):
+- acl: 2=mucoid degeneration, sprain, low-grade partial tear; 3=high-grade partial tear (>50% fibers); 4=complete tear/discontinuity
+- mcl: 2=low-grade sprain (grade 1), chronic thickening; 3=grade 2 / high-grade partial ACUTE tear; 4=complete (grade 3) tear
+- med_men / lat_men: 2=intrasubstance/degenerative signal NOT reaching surface; 3=signal likely reaching surface, small/possible tear; 4=definite tear, complex/displaced/truncated/radial/root tear
+- med_oa / lat_oa / pf_oa: 2=chondropathy grade 1-2 / mild cartilage thinning in that compartment; 3=grade 3, focal high-grade loss; 4=grade 4, full-thickness loss, bone-on-bone
+- effusion: 2=trace/small/mild/minimal; 3=moderate; 4=large/severe
+- synovitis: 2=mild/possible synovial thickening; 3=definite synovitis; 4=marked/severe
+- bakers: 2=small cyst; 3=moderate; 4=large
+- contusion: 2=subtle/small marrow edema; 3=definite bone bruise/contusion; 4=extensive marrow edema
+- fracture: 2=old/healed/chronic or questionable; 3=probable acute fracture; 4=definite acute fracture line
 
 Output ONLY a JSON object, no other text:
 {"acl":g,"mcl":g,"med_men":g,"lat_men":g,"med_oa":g,"lat_oa":g,"pf_oa":g,"effusion":g,"synovitis":g,"bakers":g,"contusion":g,"fracture":g}"""
@@ -60,7 +59,7 @@ def parse(text):
         return None
     try:
         d = json.loads(m.group(0))
-        return [int(d[k]) if k in d and int(d[k]) in (0, 1, 2, 3) else 1 for k in KEYS]
+        return [int(d[k]) if k in d and int(d[k]) in (0, 1, 2, 3, 4) else 1 for k in KEYS]
     except (ValueError, KeyError, TypeError):
         return None
 
