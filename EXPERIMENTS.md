@@ -6,6 +6,8 @@
 | 2 | 08-19 | same, labels → v3c-blend rank-scale (BUG: uniform targets) | 0.821 | 0.816 | not submitted |
 | 3 | 08-19 | same, labels → v3c-blend probability-scale | 0.849* | 0.869 | **0.880** |
 
+| 4 | 08-19 | epochs 6→12 (same labels/config) | 0.841 (peak .8425 @ep9, ≤ 6ep's 0.849 — overfits soft labels past ~ep6) | 0.890* | not submitted |
+
 *OOF measured against each run's own label set — not comparable across label versions; LB is the fair cross-run comparison.
 
 Label sets vs gold-58 (ranking AUC): public best (hybrid_v4) 0.899 · our v3c alone 0.875 · v3c+2×hybrid blend 0.900-0.904.
