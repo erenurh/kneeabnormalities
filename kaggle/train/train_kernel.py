@@ -18,11 +18,11 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 
 FOLD = 0
-EPOCHS = 12
+EPOCHS = 6
 BATCH = 8
 LR = 3e-4
 SIZE = 256
-N_SLICES = 12
+N_SLICES = 15  # cache has 16; use first 15 -> 5 triplets
 N_SLOTS = 4
 SEED = 42
 LABELS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA",
@@ -51,7 +51,7 @@ class KneeDS(Dataset):
     def __getitem__(self, i):
         r = self.df.iloc[i]
         z = np.load(CACHE / f"{r.StudyInstanceUID}.npz")
-        vol, mask = z["vol"], z["mask"]  # (4,12,S,S) uint8, (4,)
+        vol, mask = z["vol"][:, :N_SLICES], z["mask"]  # cache (4,16,S,S) -> first 15
         if self.train and np.random.rand() < 0.5:
             vol = vol[:, ::-1]  # reverse slice order
         x = torch.from_numpy(np.ascontiguousarray(vol)).float() / 255.0

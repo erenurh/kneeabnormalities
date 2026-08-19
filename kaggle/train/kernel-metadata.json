@@ -15,6 +15,6 @@
     "seksenbes/rsna-knee-soft-labels"
   ],
   "kernel_sources": [
-    "seksenbes/rsna-knee-preprocess"
+    "seksenbes/rsna-knee-preprocess-16sl"
   ]
 }
