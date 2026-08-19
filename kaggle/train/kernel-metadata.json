@@ -12,7 +12,7 @@
   ],
   "dataset_sources": [
     "seksenbes/rsna-knee-folds",
-    "flight0234/rsna-knee-hybrid-report-labels"
+    "seksenbes/rsna-knee-soft-labels"
   ],
   "kernel_sources": [
     "seksenbes/rsna-knee-preprocess"
