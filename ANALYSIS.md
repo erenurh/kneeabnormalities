@@ -125,6 +125,19 @@ Kaggle API access is live; `train.csv`/`train_series.csv` audited locally (CSVs 
 - **Report languages (py3langid, n=4,407):** en 1,735 / es 682 / **tr 546** / hr 327 / el 321 / de 262 / bg 220 / nl 153 / fr 81 / bs 79 → **10 languages**. Gold-58 spans 8 of them (en 28, es 10, tr 6, hr 4, el 3, bg 3, nl 2, de 2); **fr and bs have zero gold coverage** → hand-check burden concentrates there.
 - **Live public LB (Aug 19):** top **0.952**, 10th ≈ **0.941**, 1,952 teams — bar has risen ~0.003–0.007 since the mid-Aug intel; compression confirmed.
 
+### 2.2c DICOM header audit — measured on Kaggle (kernel `seksenbes/rsna-knee-data-audit`, 2026-08-19) **[VERIFIED]**
+
+Headers of all 24,371 series read on Kaggle (no pixels); full per-series table in `series_meta.csv` (kernel output, kept out of the repo).
+
+- **Filename order vs spatial order: 0/300 sampled series match.** Worse than the community's "~95% wrong" — position-sort is mandatory, always.
+- **`Anatomical_Plane` CSV column is 100% consistent with `ImageOrientationPatient` geometry** — the plane column is trustworthy (unlike the fluid/fat-sat columns).
+- Slices/series: median 30, IQR 25–34, min 11, **max 320** — 709 series have >100 slices (thin-slice **3D sequences**: `t2_de3d_we_tra`, `3D_VIEW_PD_SPAIR`); the slice-sampling policy must handle these, and they may be a quality opportunity (isotropic reformats).
+- FOV deciles 70–320 mm, median 160 — fixed-mm cropping confirmed necessary.
+- `PhotometricInterpretation`: **zero MONOCHROME1** — that landmine is absent. BitsStored: 12 (74%) / 16 (26%).
+- Vendors: Siemens/GE/Philips/Toshiba/Canon/Fujifilm/Hitachi with **inconsistent name spellings** (e.g. "SIEMENS" vs "Siemens Healthineers") — normalize before use. 46 scanner models. Field strength: 1.5T ≈58%, 3T ≈37%, plus a low-field tail (1.0T, 1.16T).
+- **`StationName`, `DeviceSerialNumber`, `InstitutionName`, `PatientAge` are stripped (all null).** Consequence: scanner-grouped CV cannot use device IDs — the site/scanner fingerprint for fold grouping is **(manufacturer, model, field strength)** (45 distinct combos over 4,407 studies) ∪ report-hash ∪ language.
+- `Laterality` header: present ~49% (R 6,047 / L 5,953 / **B 4**), missing/null ~51% → geometric laterality derivation is required, not optional. `PatientSex`: M 2,076 / F 1,894 / **O 199**.
+
 ### 2.3 Data audit still to run (Kaggle-side)
 
 The dataset never leaves Kaggle (573 GB; user directive: all data/GPU work runs on Kaggle notebooks via API-pushed kernels). First kernel to push once network to kaggle.com is opened from this environment (`KAGGLE_API_TOKEN` as secret env var — never committed):

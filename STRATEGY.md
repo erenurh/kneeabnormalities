@@ -21,7 +21,7 @@ Goal: turn 4,349 multilingual reports into **per-finding soft labels calibrated 
 
 With 58 gold studies and a 70% private LB, an untrustworthy CV kills us silently.
 
-1. **Folds:** 5-fold, **study-level, dual-grouped** — union-find over (byte-identical/near-duplicate reports ∪ same scanner) so the 183 duplicate-report studies and same-device studies never straddle folds. Stratify by a coarse label-burden bucket from soft labels. Fold assignment is versioned data, produced once by the audit kernel.
+1. **Folds:** 5-fold, **study-level, dual-grouped** — union-find over (byte-identical/near-duplicate reports ∪ same site fingerprint) so the 183 duplicate-report studies and same-site studies never straddle folds. Device IDs are stripped from the DICOMs (measured), so the site fingerprint is (manufacturer, model, field strength) — 45 combos — optionally refined with report language. Stratify by a coarse label-burden bucket from soft labels. Fold assignment is versioned data, produced once by the audit kernel.
 2. **Two-tier signal:**
    - *Primary (high-volume, biased):* OOF AUC against **soft report labels** on 4,349 studies — precise for ranking model variants trained on the same label version.
    - *Anchor (unbiased, tiny):* AUC against **gold-58**, always via models that never saw those studies (they stay in a permanent quarantine set, excluded from all training including labeler threshold fitting except via internal K-fold). Report with bootstrap CIs; expect ±0.02–0.04 noise; never chase single-run moves inside the CI.
