@@ -1,0 +1,12 @@
+{
+  "id": "seksenbes/rsna-knee-preprocess",
+  "title": "rsna-knee-preprocess",
+  "code_file": "preprocess_kernel.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": "true",
+  "enable_gpu": "false",
+  "enable_internet": "false",
+  "competition_sources": ["rsna-knee-abnormality-detection"],
+  "dataset_sources": ["seksenbes/rsna-knee-folds"]
+}

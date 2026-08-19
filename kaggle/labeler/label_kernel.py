@@ -17,7 +17,7 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 SMOKE = True
-THINK = True
+THINK = False
 BATCH = 8
 LABELS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA",
           "Lateral OA", "PF OA", "Effusion", "Synovitis", "Baker's",
