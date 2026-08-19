@@ -71,7 +71,7 @@ def main():
         tr = tr[tr[LABELS].notna().all(axis=1)]
     print(len(tr), "reports to label")
 
-    tok = AutoTokenizer.from_pretrained(MODEL[0])
+    tok = AutoTokenizer.from_pretrained(MODEL[0], padding_side="left")
     model = AutoModelForCausalLM.from_pretrained(
         MODEL[0], dtype=torch.float16, device_map="auto")
     model.eval()
