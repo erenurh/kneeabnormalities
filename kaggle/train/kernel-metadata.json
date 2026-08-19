@@ -1,0 +1,12 @@
+{
+  "id": "seksenbes/rsna-knee-train-baseline",
+  "title": "rsna-knee-train-baseline",
+  "code_file": "train_kernel.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": "true",
+  "enable_gpu": "true",
+  "enable_internet": "true",
+  "competition_sources": ["rsna-knee-abnormality-detection"],
+  "dataset_sources": ["seksenbes/rsna-knee-folds", "seksenbes/rsna-knee-cache", "seksenbes/rsna-knee-soft-labels"]
+}
