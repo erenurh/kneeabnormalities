@@ -54,13 +54,13 @@ There is **no weighting**. Only rank order matters → rank-averaging beats prob
 | Daily submissions | 5/day, 2 final selections | [A] |
 | External data | Allowed if freely & equally available at no cost | [A] |
 | Pretrained models | Allowed (public). DINOv2/v3, RadImageNet, BiomedCLIP in common use via Kaggle Models | [A/B] |
-| Hosted LLM APIs for report labeling | **Reportedly allowed by host ruling** (discussion #733965). One secondary source contradicts this. **Re-verify on the live thread before depending on it** | [B/U] |
-| GPU type in rerun env | **Unverified.** Competitor logs reference T4×2; P100/L4 unconfirmed | [U] |
+| Hosted LLM APIs for report labeling | **Allowed — host ruling verified from the live thread (2026-08-19):** submitting competition data incl. report text to an external LLM/API for inference (e.g. label extraction) is not, by itself, prohibited PRIVATE SHARING (Rules §2.6.b); service must be reasonably accessible and of minimal cost; host reserves judgement on specific services | ✅ verified |
+| GPU type in rerun env | ✅ **Measured (2026-08-19, GPU-probe kernel):** default GPU = **Tesla P100-PCIE-16GB ×1** (CUDA 13.0, torch 2.10.0); T4×2 selectable as alternative accelerator. Submissions rerun with the notebook's chosen accelerator | ✅ measured |
 | Winner obligations | Code + weights + methodology doc + video, CC-BY-NC 4.0 | [A] |
 
 ### 1.5 Efficiency prize track
 
-`EfficiencyScore = AUC / (Benchmark − maxAUC) + RuntimeSeconds / 32400` — **lower is better**. **[A, two matching transcriptions]**
+`EfficiencyScore = AUC / (Benchmark − maxAUC) + RuntimeSeconds / 32400` — **lower is better**. ✅ **Verified against the live Overview page (2026-08-19)** — rendered formula matches this parenthesization exactly.
 
 - `Benchmark` = sample_submission private-LB score; `maxAUC` = best private-LB AUC → denominator negative → higher AUC drives score more negative; runtime adds penalty.
 - Exchange rate ≈ **0.01 AUC ≈ 720 s runtime** [B].

@@ -1,0 +1,11 @@
+{
+  "id": "seksenbes/rsna-gpu-probe",
+  "title": "rsna-gpu-probe",
+  "code_file": "probe.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": "true",
+  "enable_gpu": "true",
+  "enable_internet": "false",
+  "competition_sources": ["rsna-knee-abnormality-detection"]
+}
