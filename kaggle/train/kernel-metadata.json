@@ -7,6 +7,14 @@
   "is_private": "true",
   "enable_gpu": "true",
   "enable_internet": "true",
-  "competition_sources": ["rsna-knee-abnormality-detection"],
-  "dataset_sources": ["seksenbes/rsna-knee-folds", "seksenbes/rsna-knee-cache", "seksenbes/rsna-knee-soft-labels"]
+  "competition_sources": [
+    "rsna-knee-abnormality-detection"
+  ],
+  "dataset_sources": [
+    "seksenbes/rsna-knee-folds",
+    "flight0234/rsna-knee-hybrid-report-labels"
+  ],
+  "kernel_sources": [
+    "seksenbes/rsna-knee-preprocess"
+  ]
 }

@@ -34,7 +34,8 @@ COMP = (sorted(p.parent for p in INPUT.glob("*/train_series.csv"))
         or sorted(p.parent for p in INPUT.glob("*/*/train_series.csv")))[0]
 CACHE = sorted(INPUT.rglob("*.npz"))[0].parent
 FOLDS = sorted(INPUT.rglob("folds.csv"))[0]
-SOFT = sorted(INPUT.rglob("soft_labels.csv"))[0]
+SOFT = (sorted(INPUT.rglob("soft_labels.csv"))
+        or sorted(INPUT.rglob("report_labels_v4hybrid.csv")))[0]
 torch.manual_seed(SEED)
 np.random.seed(SEED)
 
