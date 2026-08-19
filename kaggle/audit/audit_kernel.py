@@ -12,11 +12,11 @@ import pandas as pd
 import pydicom
 
 INPUT = Path("/kaggle/input")
-mounts = sorted(p for p in INPUT.iterdir() if p.is_dir()) if INPUT.exists() else []
-print("mounts:", [p.name for p in mounts])
-roots = [p for p in mounts if (p / "train_series.csv").exists()]
-assert roots, f"competition data not mounted; mounts={[p.name for p in mounts]}"
+roots = sorted(p.parent for p in INPUT.glob("*/train_series.csv")) or \
+        sorted(p.parent for p in INPUT.glob("*/*/train_series.csv"))
+assert roots, f"competition data not found under {INPUT}: {sorted(str(p) for p in INPUT.rglob('*'))[:20]}"
 ROOT = roots[0]
+print("data root:", ROOT)
 OUT = Path("/kaggle/working")
 
 HDR_TAGS = [
