@@ -70,9 +70,22 @@ def check_slice_order(series_dir):
     return bool(np.all(np.diff(proj) > 0) or np.all(np.diff(proj) < 0))
 
 
+def find_series_root():
+    print("input root:", sorted(p.name for p in ROOT.iterdir()))
+    study0 = pd.read_csv(ROOT / "train_series.csv")["StudyInstanceUID"].iloc[0]
+    candidates = [ROOT, *[p for p in ROOT.iterdir() if p.is_dir()]]
+    candidates += [q for p in candidates[1:] for q in p.iterdir() if q.is_dir()][:50]
+    for c in candidates:
+        if (c / study0).is_dir():
+            print("series root:", c)
+            return c
+    raise FileNotFoundError(f"no directory named {study0} within 2 levels of {ROOT}")
+
+
 def main():
-    series_dirs = [d for study in sorted((ROOT / "train_series").iterdir())
-                   for d in sorted(study.iterdir())]
+    base = find_series_root()
+    series_dirs = [d for study in sorted(base.iterdir()) if study.is_dir()
+                   for d in sorted(study.iterdir()) if d.is_dir()]
     print(f"{len(series_dirs)} series dirs")
     rows = []
     for i, sd in enumerate(series_dirs):
