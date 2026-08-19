@@ -55,7 +55,7 @@ There is **no weighting**. Only rank order matters → rank-averaging beats prob
 | External data | Allowed if freely & equally available at no cost | [A] |
 | Pretrained models | Allowed (public). DINOv2/v3, RadImageNet, BiomedCLIP in common use via Kaggle Models | [A/B] |
 | Hosted LLM APIs for report labeling | **Allowed — host ruling verified from the live thread (2026-08-19):** submitting competition data incl. report text to an external LLM/API for inference (e.g. label extraction) is not, by itself, prohibited PRIVATE SHARING (Rules §2.6.b); service must be reasonably accessible and of minimal cost; host reserves judgement on specific services | ✅ verified |
-| GPU type in rerun env | ✅ **Measured (2026-08-19, GPU-probe kernel):** default GPU = **Tesla P100-PCIE-16GB ×1** (CUDA 13.0, torch 2.10.0); T4×2 selectable as alternative accelerator. Submissions rerun with the notebook's chosen accelerator | ✅ measured |
+| GPU type in rerun env | ✅ **Measured (2026-08-19, GPU-probe kernel):** default GPU = **Tesla P100-PCIE-16GB ×1**, T4×2 selectable. **Critical: the preinstalled torch 2.10 (cu128) no longer ships sm_60 kernels — PyTorch is unusable on P100** (`cudaErrorNoKernelImageForDevice`). All torch work must select **T4** (API: `kaggle kernels push --accelerator NvidiaTeslaT4`; the flag maps to `machine_shape`, valid values `NvidiaTeslaT4`/`NvidiaTeslaP100`). Submissions rerun with the notebook's chosen accelerator | ✅ measured |
 | Winner obligations | Code + weights + methodology doc + video, CC-BY-NC 4.0 | [A] |
 
 ### 1.5 Efficiency prize track
