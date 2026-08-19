@@ -1,6 +1,8 @@
 # STRATEGY — RSNA Knee Abnormality Detection
 
-Ranked plan, written 2026-08-19 (64 days to final submission). Premise from ANALYSIS.md: the metric is unweighted macro ROC-AUC; reports are train-only; label quality and validation trust — not architecture — decide placement. Targets: **main LB top-10 (≈0.938+ private)** and **efficiency prize (0.92+ AUC in <15 min)**.
+Ranked plan, written 2026-08-19 (64 days to final submission). Premise from ANALYSIS.md: the metric is unweighted macro ROC-AUC; reports are train-only; label quality and validation trust — not architecture — decide placement.
+
+**Prize decision (2026-08-19, team lead):** primary target = **efficiency prize** (single model, ≥0.92 private AUC, <15 min, fp16, no TTA — the prize math trades 0.01 AUC ≈ 12 min, so accuracy-per-parameter is the whole game and the track is under-contested); secondary = main-LB top-10 as a bonus via a rank ensemble derived from the same line. Compute = free Kaggle quota only (~30 GPU-h/week ⇒ ~25 h/week on the single-model line, ~5 h/week on 1–2 diversity backbones for the ensemble). Final selections: submission 1 = efficiency single model, submission 2 = rank ensemble. The runtime harness is measured in the week of Sep 1, not at the end.
 
 Operating model: all data/GPU work runs on Kaggle (API-pushed kernels, free GPU quota, checkpoint-resume across ≤12 h sessions); this repo holds code, configs, and pulled-back artifacts (OOF CSVs, audit JSON, weights). Nothing heavy is ever downloaded locally.
 
@@ -58,8 +60,8 @@ Budget (9 h = 32,400 s for ~1,300 studies ≈ 25 s/study ceiling — generous):
 | 4–6 models × forward | ~1–2 h |
 | Total | **~4 h** — half the cap, safe margin |
 
-- **Main entry:** 4–6 diverse members (backbone × init × slice-count × label-version), **rank-averaged**; per-finding member exclusion where measured (e.g. RadImageNet out of Baker's/Fracture). TTA: horizontal-flip-with-label-swap only if it survives the gold CI — likely dropped.
-- **Efficiency entry:** single EffNetV2-S (or smaller), 16 slices, 256², 2–3 slots, fp16 (TensorRT if stable in the rerun env), no TTA. Target **0.92+ AUC, <15 min**. At 0.01 AUC ≈ 720 s, accuracy dominates — this model is the main model's distilled/pruned sibling, not a separate research line.
+- **Efficiency entry (primary):** single EffNetV2-S (or smaller), 12–16 slices, 256², 3–4 slots, fp16 (TensorRT if stable in the rerun env), no TTA. Target **0.92+ AUC, <15 min**. At 0.01 AUC ≈ 720 s, accuracy dominates — all label-quality and per-finding tuning work lands here first.
+- **Main-LB entry (bonus, derived):** rank-average of the efficiency line's 5 fold models + 1–2 diversity backbones (ConvNeXt-T / RadImageNet-init), per-finding member exclusion where measured (e.g. RadImageNet out of Baker's/Fracture). TTA: horizontal-flip-with-label-swap only if it survives the gold CI — likely dropped.
 - Preprocessing code is shared verbatim between train cache and inference (one module) to kill train/test skew.
 
 ## 6. Risk register (top 5)
