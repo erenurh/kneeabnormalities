@@ -11,7 +11,12 @@ import numpy as np
 import pandas as pd
 import pydicom
 
-ROOT = Path("/kaggle/input/rsna-knee-abnormality-detection")
+INPUT = Path("/kaggle/input")
+mounts = sorted(p for p in INPUT.iterdir() if p.is_dir()) if INPUT.exists() else []
+print("mounts:", [p.name for p in mounts])
+roots = [p for p in mounts if (p / "train_series.csv").exists()]
+assert roots, f"competition data not mounted; mounts={[p.name for p in mounts]}"
+ROOT = roots[0]
 OUT = Path("/kaggle/working")
 
 HDR_TAGS = [
