@@ -113,6 +113,18 @@ Today (Aug 19) → **57 days to entry, 64 to final.**
 9. **CV→LB relation is a slope, not an offset:** fitted `LB ≈ 0.825 × gold-CV + 0.184` [B]. Improvements measured on gold shrink ~17% on the board.
 10. `PatientSex` is legitimate signal (ACL: M 54% vs F 32% positive; Medial OA: F 45% vs M 12%).
 
+### 2.2b Audit results — measured directly from competition CSVs (2026-08-19, this session) **[VERIFIED]**
+
+Kaggle API access is live; `train.csv`/`train_series.csv` audited locally (CSVs only — DICOMs stay on Kaggle):
+
+- Counts confirmed exactly: **4,407 studies / 58 gold / 4,349 report-only; 24,371 series** (sag 9,864 / cor 8,609 / ax 5,898). All 58 gold studies also have reports. Visible test stub = 3 studies (hidden test swapped at rerun).
+- **Gold-58 per-finding prevalence:** Effusion .60, Synovitis .47, Med Meniscus .45, ACL .41, Lat Meniscus .40, PF OA .36, Contusion .33, Fracture .31, Med OA .26, Baker's .21, Lat OA .19, MCL .16. Zero all-negative studies; mean 4.14 positives/study — enrichment confirmed.
+- **Duplicate reports confirmed:** 49 exact-hash groups covering 183 studies, largest 37.
+- **`Fluid_Sensitive` ≡ `Fat_Suppression` on every row** — bug confirmed; derive sequence type from DICOM headers.
+- Series per study: min 3 / median 5 / max 14. **Slot availability:** Axial fat-sat **100%** of studies, Sagittal non-fs 96.8%, Coronal fs 96.4%, Sagittal fs 94.2%, Coronal non-fs 77.3%, Axial non-fs 19.4%. (Richer than the community's "6-slot 42.5%" picture — their slot definition differed; ours: plane × fat-sat.)
+- **Report languages (py3langid, n=4,407):** en 1,735 / es 682 / **tr 546** / hr 327 / el 321 / de 262 / bg 220 / nl 153 / fr 81 / bs 79 → **10 languages**. Gold-58 spans 8 of them (en 28, es 10, tr 6, hr 4, el 3, bg 3, nl 2, de 2); **fr and bs have zero gold coverage** → hand-check burden concentrates there.
+- **Live public LB (Aug 19):** top **0.952**, 10th ≈ **0.941**, 1,952 teams — bar has risen ~0.003–0.007 since the mid-Aug intel; compression confirmed.
+
 ### 2.3 Data audit still to run (Kaggle-side)
 
 The dataset never leaves Kaggle (573 GB; user directive: all data/GPU work runs on Kaggle notebooks via API-pushed kernels). First kernel to push once network to kaggle.com is opened from this environment (`KAGGLE_API_TOKEN` as secret env var — never committed):
