@@ -21,7 +21,7 @@ ALPHA = 1.0  # Laplace smoothing
 def fit_map(grades, truth):
     """grade -> smoothed positive rate for one finding."""
     return {g: (truth[grades == g].sum() + ALPHA) / ((grades == g).sum() + 2 * ALPHA)
-            for g in (0, 1, 2, 3)}
+            for g in (0, 1, 2, 3, 4)}
 
 
 def main(train_csv, grades_csv, out_csv):
