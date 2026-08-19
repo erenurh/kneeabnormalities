@@ -18,7 +18,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 
 FOLD = 0
-EPOCHS = 6
+EPOCHS = 12
 BATCH = 8
 LR = 3e-4
 SIZE = 256
