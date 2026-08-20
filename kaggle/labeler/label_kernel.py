@@ -52,7 +52,7 @@ Per-finding grade anchors (use the report's own wording):
 - synovitis: any-language synonyms count (synovial thickening/hypertrophy/proliferation, sinovit, sinovyal kalinlasma, hipertrofia sinovial, engrosamiento sinovial). 2=mild/possible; 3=definite; 4=marked/severe
 - bakers: 2=small cyst; 3=moderate; 4=large
 - contusion: 2=subtle/small marrow edema; 3=definite bone bruise/contusion; 4=extensive marrow edema
-- fracture: 0=report explicitly denies fracture ("no fracture", "fraktur yok", "kirik izlenmedi", "sin fractura", any language); 2=old/healed/chronic or questionable; 3=probable acute fracture; 4=definite acute fracture line/cortical break
+- fracture: 2=old/healed/chronic or questionable; 3=probable acute fracture; 4=definite acute fracture line
 
 severity (integer 0-100): your probability in percent that the finding is POSITIVE at these strict thresholds on the images:
 ACL/MCL positive only if high-grade partial or complete tear. Meniscus positive if tear reaches the surface. OA positive if >=1cm of >50%-thickness cartilage loss in that compartment. Effusion positive only if moderate or large. Baker's positive only if moderate or large. Contusion positive if impact marrow edema without fracture line. Fracture positive if acute fracture line. Borderline cases are NEGATIVE. A finding never mentioned may still be present: use a low but non-zero probability typical for knee MRI populations.
