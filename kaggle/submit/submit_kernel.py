@@ -30,7 +30,7 @@ FS_PAT = re.compile(r"(?i)\bfs\b|fat.?sat|spair|spir|stir|tirm|_fs|fs_|fatsat")
 INPUT = Path("/kaggle/input")
 COMP = (sorted(p.parent for p in INPUT.glob("*/test_series.csv"))
         or sorted(p.parent for p in INPUT.glob("*/*/test_series.csv")))[0]
-CKPT = sorted(INPUT.rglob("effv2s_f0.pt"))[0]
+CKPT = sorted(INPUT.rglob("effv2s_all.pt")) and sorted(INPUT.rglob("effv2s_all.pt"))[0] or sorted(INPUT.rglob("effv2s_f0.pt"))[0]
 DEV = "cuda" if torch.cuda.is_available() else "cpu"
 
 

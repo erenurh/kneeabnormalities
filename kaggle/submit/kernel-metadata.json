@@ -11,6 +11,6 @@
     "rsna-knee-abnormality-detection"
   ],
   "kernel_sources": [
-    "seksenbes/rsna-knee-train-distill"
+    "seksenbes/rsna-knee-train-distill-all"
   ]
 }
