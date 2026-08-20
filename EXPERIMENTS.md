@@ -18,3 +18,4 @@ Label sets vs gold-58 (ranking AUC): public best (hybrid_v4) 0.899 · our v3c al
 Lessons: (1) label lift is real on hidden test (+0.008 LB, single-variable);
 (2) training targets must be probability-scale, never percentile ranks;
 (3) gold-12-per-fold is too small to rank models — use it only as a sanity anchor.
+| v8 | 08-20 | exp-5 reproduction for clean latest weights (deterministic: OOF 0.8539) — **morning submission candidate** |
