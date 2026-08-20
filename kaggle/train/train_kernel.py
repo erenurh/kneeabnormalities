@@ -19,7 +19,7 @@ from torch.utils.data import DataLoader, Dataset
 
 FOLD = 0
 EPOCHS = 6
-BATCH = 8
+BATCH = 6
 LR = 3e-4
 SIZE = 256
 N_SLICES = 15  # cache has 16; use first 15 -> 5 triplets
