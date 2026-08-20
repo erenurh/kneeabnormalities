@@ -18,7 +18,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, Dataset
 
 FOLD = -1  # -1: train on ALL studies (distill targets are OOF-based, leak-free)
-EPOCHS = 6
+EPOCHS = 10
 BATCH = 6
 LR = 3e-4
 SIZE = 256
