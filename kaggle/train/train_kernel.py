@@ -52,10 +52,20 @@ class KneeDS(Dataset):
         r = self.df.iloc[i]
         z = np.load(CACHE / f"{r.StudyInstanceUID}.npz")
         vol, mask = z["vol"][:, :N_SLICES], z["mask"]  # cache (4,16,S,S) -> first 15
-        if self.train and np.random.rand() < 0.5:
-            vol = vol[:, ::-1]  # reverse slice order
+        y = r[LABELS].astype(float).values.copy()
+        if self.train:
+            vol = vol.copy()
+            # slots 0,1 sagittal: stack axis is medial-lateral -> reversing
+            # swaps Med/Lat anatomy, so swap the paired labels with it
+            if np.random.rand() < 0.5:
+                vol[:2] = vol[:2, ::-1]
+                y[[2, 3]] = y[[3, 2]]  # Medial/Lateral Meniscus
+                y[[4, 5]] = y[[5, 4]]  # Medial/Lateral OA
+            # slots 2,3 coronal/axial: stack axes are A-P / S-I, label-invariant
+            if np.random.rand() < 0.5:
+                vol[2:] = vol[2:, ::-1]
         x = torch.from_numpy(np.ascontiguousarray(vol)).float() / 255.0
-        y = torch.tensor(r[LABELS].astype(float).values, dtype=torch.float32)
+        y = torch.tensor(y, dtype=torch.float32)
         return x, torch.from_numpy(mask), y, torch.tensor(float(r.sex_m))
 
 
