@@ -114,9 +114,9 @@ def predict_study(net, uid):
             or [i for i in infos if i["plane"] == plane]
         cand.sort(key=lambda i: (-i["n"], i["dir"].name))
         if cand:
-            arr = load_series(cand[0]["dir"], N_SLICES)
-            if arr is not None:
-                vol[k], mask[k] = arr, True
+            arr = load_series(cand[0]["dir"], N_SLICES + 1)  # match training:
+            if arr is not None:                               # 16 sampled, first 15 used
+                vol[k], mask[k] = arr[:N_SLICES], True
     if not mask.any():
         return PRIOR
     sex = float(any(i["sex"] == "M" for i in infos))
