@@ -7,6 +7,10 @@
   "is_private": "true",
   "enable_gpu": "true",
   "enable_internet": "false",
-  "competition_sources": ["rsna-knee-abnormality-detection"],
-  "kernel_sources": ["seksenbes/rsna-knee-train-baseline"]
+  "competition_sources": [
+    "rsna-knee-abnormality-detection"
+  ],
+  "kernel_sources": [
+    "seksenbes/rsna-knee-train-distill"
+  ]
 }
