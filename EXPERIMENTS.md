@@ -20,3 +20,4 @@ Lessons: (1) label lift is real on hidden test (+0.008 LB, single-variable);
 (3) gold-12-per-fold is too small to rank models — use it only as a sanity anchor.
 | v8 | 08-20 | exp-5 reproduction for clean latest weights (deterministic: OOF 0.8539) — **morning submission candidate** |
 | 7 | 08-20 | submit-kernel slice bug: 16sl model fed 12 slices → LB 0.875; fixed (15 slices, training-identical sampling) → **LB 0.881** (new best; OOF +0.005 → LB +0.001, within public-split noise) |
+| 8 | 08-20 | folds 1-4 trained (same config as best) — per-fold OOF: .854/.840/.847/.850/.847; merged 4,407-study OOF vs gold-58 (full anchor, n=58): **0.857** CI(.818-.891). Weak columns: MCL .78, Synovitis .79, PF OA .80 |
