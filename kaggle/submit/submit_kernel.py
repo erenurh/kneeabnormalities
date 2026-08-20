@@ -17,7 +17,7 @@ import torch
 import torch.nn as nn
 from PIL import Image
 
-N_SLICES = 12
+N_SLICES = 15
 SIZE = 256
 CROP_MM = 140.0
 SLOTS = [("Sagittal", True), ("Sagittal", False), ("Coronal", True), ("Axial", True)]
