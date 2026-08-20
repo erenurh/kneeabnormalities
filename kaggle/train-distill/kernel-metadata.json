@@ -1,0 +1,20 @@
+{
+  "id": "seksenbes/rsna-knee-train-distill",
+  "title": "rsna-knee-train-distill",
+  "code_file": "train_kernel.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": "true",
+  "enable_gpu": "true",
+  "enable_internet": "true",
+  "competition_sources": [
+    "rsna-knee-abnormality-detection"
+  ],
+  "dataset_sources": [
+    "seksenbes/rsna-knee-folds",
+    "seksenbes/rsna-knee-soft-labels"
+  ],
+  "kernel_sources": [
+    "seksenbes/rsna-knee-preprocess-16sl"
+  ]
+}
