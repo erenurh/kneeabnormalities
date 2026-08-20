@@ -18,7 +18,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 SMOKE = True
 THINK = False
-BATCH = 8
+BATCH = 12
 LABELS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA",
           "Lateral OA", "PF OA", "Effusion", "Synovitis", "Baker's",
           "Contusion", "Fracture"]
@@ -45,14 +45,14 @@ grade (integer 0-4):
 
 Per-finding grade anchors (use the report's own wording):
 - acl: 2=mucoid degeneration, sprain, low-grade partial tear; 3=high-grade partial tear (>50% fibers); 4=complete tear/discontinuity
-- mcl: 2=low-grade sprain (grade 1), chronic thickening; 3=grade 2 / high-grade partial ACUTE tear; 4=complete (grade 3) tear
+- mcl: 2=low-grade sprain (grade 1) or chronic thickening WITHOUT surrounding edema; 3=grade 2 / high-grade partial ACUTE tear (fiber disruption or surrounding edema present); 4=complete (grade 3) tear
 - med_men / lat_men: 2=intrasubstance/degenerative signal NOT reaching surface; 3=signal likely reaching surface, small/possible tear; 4=definite tear, complex/displaced/truncated/radial/root tear
-- med_oa / lat_oa / pf_oa: 2=chondropathy grade 1-2 / mild cartilage thinning in that compartment; 3=grade 3, focal high-grade loss; 4=grade 4, full-thickness loss, bone-on-bone
+- med_oa / lat_oa / pf_oa: 2=chondropathy grade 1-2 / mild cartilage thinning in that compartment; 3=grade 3, focal high-grade loss; 4=grade 4, full-thickness loss, bone-on-bone. Chondromalacia patellae / patellar or trochlear chondropathy belongs to pf_oa (its grade maps directly). Femorotibial medial→med_oa, lateral→lat_oa
 - effusion: 2=trace/small/mild/minimal; 3=moderate; 4=large/severe
-- synovitis: 2=mild/possible synovial thickening; 3=definite synovitis; 4=marked/severe
+- synovitis: any-language synonyms count (synovial thickening/hypertrophy/proliferation, sinovit, sinovyal kalinlasma, hipertrofia sinovial, engrosamiento sinovial). 2=mild/possible; 3=definite; 4=marked/severe
 - bakers: 2=small cyst; 3=moderate; 4=large
 - contusion: 2=subtle/small marrow edema; 3=definite bone bruise/contusion; 4=extensive marrow edema
-- fracture: 2=old/healed/chronic or questionable; 3=probable acute fracture; 4=definite acute fracture line
+- fracture: 0=report explicitly denies fracture ("no fracture", "fraktur yok", "kirik izlenmedi", "sin fractura", any language); 2=old/healed/chronic or questionable; 3=probable acute fracture; 4=definite acute fracture line/cortical break
 
 severity (integer 0-100): your probability in percent that the finding is POSITIVE at these strict thresholds on the images:
 ACL/MCL positive only if high-grade partial or complete tear. Meniscus positive if tear reaches the surface. OA positive if >=1cm of >50%-thickness cartilage loss in that compartment. Effusion positive only if moderate or large. Baker's positive only if moderate or large. Contusion positive if impact marrow edema without fracture line. Fracture positive if acute fracture line. Borderline cases are NEGATIVE. A finding never mentioned may still be present: use a low but non-zero probability typical for knee MRI populations.
@@ -99,7 +99,10 @@ def main():
         tokenize=False, add_generation_prompt=True, enable_thinking=THINK)
         for r in tr["Report"].fillna("")]
 
-    rows = []
+    order = sorted(range(len(prompts)), key=lambda i: len(prompts[i]))
+    prompts = [prompts[i] for i in order]
+    rows = [None] * len(prompts)
+    done = 0
     for i in range(0, len(prompts), BATCH):
         chunk = prompts[i:i + BATCH]
         enc = tok(chunk, return_tensors="pt", padding=True,
@@ -107,11 +110,12 @@ def main():
         with torch.no_grad():
             out = model.generate(**enc, max_new_tokens=1600 if THINK else 200,
                                  do_sample=False, pad_token_id=tok.eos_token_id)
-        for o in out:
+        for j, o in enumerate(out):
             text = tok.decode(o[enc["input_ids"].shape[1]:], skip_special_tokens=True)
-            rows.append({"raw": text, "vals": parse(text)})
+            rows[order[i + j]] = {"raw": text, "vals": parse(text)}
+            done += 1
         if i % (BATCH * 5) == 0:
-            print(i, flush=True)
+            print(done, flush=True)
 
     res = pd.DataFrame({"StudyInstanceUID": tr["StudyInstanceUID"].values})
     vals = [r["vals"] or [(1, 25)] * 12 for r in rows]
