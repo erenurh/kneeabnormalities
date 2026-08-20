@@ -9,7 +9,7 @@
 | 4 | 08-19 | epochs 6→12 (same labels/config) | 0.841 (peak .8425 @ep9, ≤ 6ep's 0.849 — overfits soft labels past ~ep6) | 0.890* | not submitted |
 
 | 5 | 08-20 | slices 12→16 (15 used, 5 triplets; batch 6) | **0.854** | 0.876 | candidate |
-| 6 | 08-20 | laterality-aware slice-reversal aug (sagittal reversal now swaps Med/Lat label pairs — previous aug injected label noise) | running | | |
+| 6 | 08-20 | laterality-aware aug: sagittal reversal + Med/Lat label swap | 0.835 ✗ | 0.851 | reverted — swap contradicts unmirrored cor/ax slots; coherent mirroring needs all planes flipped together |
 
 *OOF measured against each run's own label set — not comparable across label versions; LB is the fair cross-run comparison.
 
