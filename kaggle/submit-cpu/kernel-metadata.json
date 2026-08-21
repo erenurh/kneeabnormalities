@@ -1,0 +1,17 @@
+{
+  "id": "seksenbes/rsna-knee-submit-cpu",
+  "title": "rsna-knee-submit-cpu",
+  "code_file": "submit_kernel.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": "true",
+  "enable_gpu": "false",
+  "enable_internet": "false",
+  "competition_sources": [
+    "rsna-knee-abnormality-detection"
+  ],
+  "kernel_sources": [
+    "seksenbes/rsna-knee-train-distill-all",
+    "seksenbes/rsna-knee-train-distill"
+  ]
+}
