@@ -2,6 +2,8 @@
 
 Ranked plan, written 2026-08-19 (64 days to final submission). Premise from ANALYSIS.md: the metric is unweighted macro ROC-AUC; reports are train-only; label quality and validation trust — not architecture — decide placement.
 
+**Progress (as of 2026-08-21):** LB 0.872 → **0.910** in 3 days (single distilled model — public baseline and all public material surpassed; efficiency floor ~0.915 within 0.005). Proven levers, in measured order of impact: distillation from the 5-fold ensemble teacher (+0.02 single-model), longer training on clean distill targets (+0.008), fold ensembling (+0.016), own labels (+0.008), slice count (+0.001 LB). Next: distill round 2 (retrain folds on distill targets -> stronger teacher), 320px cache (built), label v5 (Qwen3-14B), efficiency runtime measurement.
+
 **Prize decision (2026-08-19, team lead):** primary target = **efficiency prize** (single model, ≥0.92 private AUC, <15 min, fp16, no TTA — the prize math trades 0.01 AUC ≈ 12 min, so accuracy-per-parameter is the whole game and the track is under-contested); secondary = main-LB top-10 as a bonus via a rank ensemble derived from the same line. Compute = free Kaggle quota only (~30 GPU-h/week ⇒ ~25 h/week on the single-model line, ~5 h/week on 1–2 diversity backbones for the ensemble). Final selections: submission 1 = efficiency single model, submission 2 = rank ensemble. The runtime harness is measured in the week of Sep 1, not at the end.
 
 Operating model: all data/GPU work runs on Kaggle (API-pushed kernels, free GPU quota, checkpoint-resume across ≤12 h sessions); this repo holds code, configs, and pulled-back artifacts (OOF CSVs, audit JSON, weights). Nothing heavy is ever downloaded locally.

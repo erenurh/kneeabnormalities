@@ -27,3 +27,5 @@ Lessons: (1) label lift is real on hidden test (+0.008 LB, single-variable);
 | 12 | 08-20 | Distilled single model → **LB 0.900** — new overall best; single model ≥ 5-fold ensemble (0.897). Efficiency-entry thesis validated: full knowledge transfer at 1/5 inference cost |
 | 13 | 08-20 | All-data distilled single model (4,407 studies, same targets) → **LB 0.902** — new overall best; +0.002 over fold-holdout distilled (0.900), extra 25% data helped |
 | 14 | 08-21 | 10-epoch all-data distilled model (curve rose through ep9) → **LB 0.910** — new overall best (+0.008 over 6ep; longer training pays on clean distill targets) |
+| 15 | 08-21 | v3d silence imputation (synovitis<-effusion when unmentioned): HURTS (0.900→0.897-0.899) — our labeler already emits calibrated non-zero severities for silence; community gain only applies to hard-zero labelers. Not adopted. | | | |
+| 16 | 08-21 | 320px/16sl cache building as 2 CPU half-kernels (zero GPU; measured: single kernel would be 21.1GB > 20GB output cap) — ready for Saturday's high-res training | | | |
