@@ -26,4 +26,4 @@ Lessons: (1) label lift is real on hidden test (+0.008 LB, single-variable);
 | 11 | 08-20 | Distillation: targets = 0.5*teacher-OOF(5-fold ens) + 0.5*v3c-blend (targets gold 0.9166). Student single model OOF-vs-labels **0.876** (+0.022 over 0.854), gold-12 0.884 — largest single-model gain; efficiency-entry candidate |
 | 12 | 08-20 | Distilled single model → **LB 0.900** — new overall best; single model ≥ 5-fold ensemble (0.897). Efficiency-entry thesis validated: full knowledge transfer at 1/5 inference cost |
 | 13 | 08-20 | All-data distilled single model (4,407 studies, same targets) → **LB 0.902** — new overall best; +0.002 over fold-holdout distilled (0.900), extra 25% data helped |
-| 14 | 08-21 | 10-epoch all-data distilled model (curve rose through ep9) submitted 00:02 UTC — score pending, user checks in the morning. Baseline to beat: 0.902 |
+| 14 | 08-21 | 10-epoch all-data distilled model (curve rose through ep9) → **LB 0.910** — new overall best (+0.008 over 6ep; longer training pays on clean distill targets) |
