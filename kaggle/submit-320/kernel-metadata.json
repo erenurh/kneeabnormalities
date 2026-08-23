@@ -1,0 +1,16 @@
+{
+  "id": "seksenbes/rsna-knee-submit-320",
+  "title": "rsna-knee-submit-320",
+  "code_file": "submit_kernel.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": "true",
+  "enable_gpu": "true",
+  "enable_internet": "false",
+  "competition_sources": [
+    "rsna-knee-abnormality-detection"
+  ],
+  "kernel_sources": [
+    "seksenbes/rsna-knee-train-320"
+  ]
+}
