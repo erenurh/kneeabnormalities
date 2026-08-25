@@ -2,12 +2,11 @@
 
 Mirrors the training preprocessing exactly (position-sorted slices, 140mm
 center crop, per-slice percentile norm, 4 slots with header-derived fat-sat)
-and runs the 320px all-data distilled EfficientNetV2-S checkpoint (train-320).
+and rank-averages the five 320px distill-round-2 fold checkpoints.
 Any study that fails preprocessing gets the training-prevalence prior so the
 submission always has every required row.
 """
 import re
-import time
 from pathlib import Path
 
 import numpy as np
@@ -31,7 +30,7 @@ FS_PAT = re.compile(r"(?i)\bfs\b|fat.?sat|spair|spir|stir|tirm|_fs|fs_|fatsat")
 INPUT = Path("/kaggle/input")
 COMP = (sorted(p.parent for p in INPUT.glob("*/test_series.csv"))
         or sorted(p.parent for p in INPUT.glob("*/*/test_series.csv")))[0]
-CKPT = sorted(INPUT.rglob("effv2s_320_all.pt"))[0]
+CKPTS = sorted(INPUT.rglob("effv2s_320_f*.pt"))
 DEV = "cuda" if torch.cuda.is_available() else "cpu"
 
 
@@ -105,7 +104,7 @@ class Net(nn.Module):
         return self.head(torch.cat([emb, sex.unsqueeze(-1)], -1))
 
 
-def predict_study(net, uid):
+def predict_study(nets, uid):
     infos = [si for sd in sorted((COMP / "test_series" / uid).iterdir())
              if (si := series_info(sd)) is not None]
     vol = np.zeros((len(SLOTS), N_SLICES, SIZE, SIZE), np.uint8)
@@ -119,37 +118,44 @@ def predict_study(net, uid):
             if arr is not None:                               # 16 sampled, first 15 used
                 vol[k], mask[k] = arr[:N_SLICES], True
     if not mask.any():
-        return PRIOR
+        return [PRIOR] * len(nets)
     sex = float(any(i["sex"] == "M" for i in infos))
     x = torch.from_numpy(vol).float().div_(255).unsqueeze(0).to(DEV)
     m = torch.from_numpy(mask).unsqueeze(0).to(DEV)
     s = torch.tensor([sex]).to(DEV)
+    out = []
     with torch.no_grad(), torch.amp.autocast(DEV if DEV == "cuda" else "cpu"):
-        p = torch.sigmoid(net(x, m, s)).float().cpu().numpy()[0]
-    return p.tolist()
+        for net in nets:
+            out.append(torch.sigmoid(net(x, m, s)).float().cpu().numpy()[0].tolist())
+    return out
 
 
 def main():
-    t0 = time.time()
     test = pd.read_csv(COMP / "test.csv")
-    net = Net().to(DEV)
-    net.load_state_dict(torch.load(CKPT, map_location=DEV))
-    net.eval()
-    rows = []
-    for i, uid in enumerate(test["StudyInstanceUID"]):
+    print(len(CKPTS), "checkpoints:", [c.name for c in CKPTS])
+    nets = []
+    for c in CKPTS:
+        net = Net().to(DEV)
+        net.load_state_dict(torch.load(c, map_location=DEV))
+        net.eval()
+        nets.append(net)
+    per_model = [[] for _ in nets]
+    uids = list(test["StudyInstanceUID"])
+    for i, uid in enumerate(uids):
         try:
-            p = predict_study(net, uid)
+            ps = predict_study(nets, uid)
         except Exception as e:
             print(uid, "FAIL", e, flush=True)
-            p = PRIOR
-        rows.append([uid] + list(p))
+            ps = [PRIOR] * len(nets)
+        for j, p in enumerate(ps):
+            per_model[j].append(p)
         if i % 100 == 0:
-            el = time.time() - t0
-            print(f"{i} elapsed={el:.0f}s per_study={el/max(i,1):.2f}s", flush=True)
-    sub = pd.DataFrame(rows, columns=["StudyInstanceUID"] + LABELS)
+            print(i, flush=True)
+    ranked = sum(pd.DataFrame(pm, columns=LABELS).rank(pct=True) for pm in per_model)
+    sub = pd.concat([pd.Series(uids, name="StudyInstanceUID"),
+                     ranked / len(nets)], axis=1)
     sub.to_csv("/kaggle/working/submission.csv", index=False)
-    # efficiency-track datapoint: total wall time on the rerun's hidden test
-    print(f"wrote {len(sub)} rows total={time.time()-t0:.0f}s")
+    print("wrote", len(sub), "rows")
 
 
 if __name__ == "__main__":
