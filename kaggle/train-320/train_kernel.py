@@ -39,7 +39,8 @@ COMP = (sorted(p.parent for p in INPUT.glob("*/train_series.csv"))
         or sorted(p.parent for p in INPUT.glob("*/*/train_series.csv")))[0]
 NPZ = {p.stem: p for p in INPUT.rglob("*.npz")}  # spans both half caches
 FOLDS = sorted(INPUT.rglob("folds.csv"))[0]
-SOFT = (sorted(INPUT.rglob("distill_targets.csv"))
+SOFT = (sorted(INPUT.rglob("distill_targets_r2.csv"))
+        or sorted(INPUT.rglob("distill_targets.csv"))
         or sorted(INPUT.rglob("report_labels_v4hybrid.csv")))[0]
 torch.manual_seed(SEED)
 np.random.seed(SEED)
@@ -99,7 +100,7 @@ def main():
         trn, val = df, df[df.fold == 0]  # val = fold-0, in-train: logging only, biased
     else:
         trn, val = df[df.fold != FOLD], df[df.fold == FOLD]
-    print(f"train {len(trn)} val {len(val)} cache {len(NPZ)}")
+    print(f"train {len(trn)} val {len(val)} cache {len(NPZ)} soft={SOFT.name}")
 
     dev = "cuda"
     net = Net().to(dev)
