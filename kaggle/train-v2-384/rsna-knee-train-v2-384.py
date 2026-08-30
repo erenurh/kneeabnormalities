@@ -9,6 +9,13 @@ Slices 15->24 (single variable vs the 0.915 r2 student). Batch 2 at 320px (14.5G
 proven 256px config), LR scaled with batch. Time guard: T4 sessions cap at
 12h and a killed kernel loses outputs, so past 10.5h we stop after the
 current epoch and save whatever is trained.
+
+08-30 rerun (exp-26): first attempt at this resolution (exp-25, single T4
+batch of 1 -- 384^2 doesn't fit a physical batch of 2) tracked well behind
+the 320px v2 run's soft-OOF at every epoch. Single-variable fix: 2-step
+gradient accumulation to match the 320px run's effective batch of 2, LR
+back to 1e-4 to match. Physical batch stays 1 (memory-bound), only the
+optimizer step cadence changes.
 """
 import json
 import time
@@ -24,7 +31,8 @@ from torch.utils.data import DataLoader, Dataset
 FOLD = -1  # -1: train on ALL studies (distill targets are OOF-based, leak-free)
 EPOCHS = 10
 BATCH = 1
-LR = 5e-5
+ACCUM = 2  # effective batch 2, matching the 320px run (384px doesn't fit physical batch 2)
+LR = 1e-4
 SIZE = 384
 N_SLICES = 24  # cache has 24 -> 8 triplets per slot
 N_SLOTS = 4
@@ -119,8 +127,9 @@ def main():
     dev = "cuda"
     net = Net().to(dev)
     opt = torch.optim.AdamW(net.parameters(), lr=LR, weight_decay=1e-2)
+    steps_per_ep = len(trn) // BATCH // ACCUM + 1
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(
-        opt, T_max=EPOCHS * (len(trn) // BATCH + 1))
+        opt, T_max=EPOCHS * steps_per_ep)
     scaler = torch.amp.GradScaler()
     dl_t = DataLoader(KneeDS(trn, True), batch_size=BATCH, shuffle=True,
                       num_workers=4, pin_memory=True, drop_last=True)
@@ -129,18 +138,26 @@ def main():
     aucs, ep_done = [0.0], 0
     for ep in range(EPOCHS):
         net.train()
-        tot = 0.0
-        for x, m, y, s in dl_t:
+        tot, n_loss = 0.0, 0
+        opt.zero_grad()
+        for i, (x, m, y, s) in enumerate(dl_t):
             x, m, y, s = x.to(dev), m.to(dev), y.to(dev), s.to(dev)
             with torch.amp.autocast("cuda"):
                 loss = nn.functional.binary_cross_entropy_with_logits(
-                    net(x, m, s), y)
-            opt.zero_grad()
+                    net(x, m, s), y) / ACCUM
             scaler.scale(loss).backward()
+            if (i + 1) % ACCUM == 0:
+                scaler.step(opt)
+                scaler.update()
+                opt.zero_grad()
+                sched.step()
+            tot += loss.item() * ACCUM
+            n_loss += 1
+        if (i + 1) % ACCUM != 0:
             scaler.step(opt)
             scaler.update()
+            opt.zero_grad()
             sched.step()
-            tot += loss.item()
         net.eval()
         preds = []
         with torch.no_grad(), torch.amp.autocast("cuda"):
@@ -154,7 +171,7 @@ def main():
                 for j in range(12) if 0 < (yv[:, j] >= 0.5).mean() < 1]
         ep_done = ep + 1
         elapsed = time.time() - START
-        print(f"ep{ep} loss={tot/len(dl_t):.4f} soft-OOF-AUC={np.mean(aucs):.4f}"
+        print(f"ep{ep} loss={tot/n_loss:.4f} soft-OOF-AUC={np.mean(aucs):.4f}"
               f" elapsed={elapsed/3600:.2f}h", flush=True)
         torch.save(net.state_dict(), "/kaggle/working/effv2s_v2_384_all.pt")
         if elapsed > TIME_BUDGET_S:
