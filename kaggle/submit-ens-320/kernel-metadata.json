@@ -1,0 +1,27 @@
+{
+  "id": "seksenbes/rsna-knee-submit-ens-320",
+  "id_no": 132058351,
+  "title": "rsna-knee-submit-ens-320",
+  "code_file": "rsna-knee-submit-ens-320.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_tpu": false,
+  "enable_internet": false,
+  "keywords": [],
+  "dataset_sources": [],
+  "kernel_sources": [
+    "seksenbes/rsna-knee-train-320-f0",
+    "seksenbes/rsna-knee-train-320-f1",
+    "seksenbes/rsna-knee-train-320-f2",
+    "seksenbes/rsna-knee-train-320-f3",
+    "seksenbes/rsna-knee-train-320-f4"
+  ],
+  "competition_sources": [
+    "rsna-knee-abnormality-detection"
+  ],
+  "model_sources": [],
+  "docker_image": "gcr.io/kaggle-private-byod/python@sha256:37c64f7dd9c54116ecd1bcc88817c5469b88387388fade02bfa8bf3fc647d461",
+  "machine_shape": "NvidiaTeslaT4"
+}

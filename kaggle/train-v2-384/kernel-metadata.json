@@ -1,0 +1,31 @@
+{
+  "id": "seksenbes/rsna-knee-train-v2-384",
+  "id_no": 132470872,
+  "title": "rsna-knee-train-v2-384",
+  "code_file": "rsna-knee-train-v2-384.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_tpu": false,
+  "enable_internet": true,
+  "keywords": [
+    "gpu"
+  ],
+  "dataset_sources": [
+    "seksenbes/rsna-knee-folds",
+    "seksenbes/rsna-knee-soft-labels"
+  ],
+  "kernel_sources": [
+    "seksenbes/rsna-knee-preprocess-384s24a",
+    "seksenbes/rsna-knee-preprocess-384s24b",
+    "seksenbes/rsna-knee-preprocess-384s24c",
+    "seksenbes/rsna-knee-preprocess-384s24d"
+  ],
+  "competition_sources": [
+    "rsna-knee-abnormality-detection"
+  ],
+  "model_sources": [],
+  "docker_image": "gcr.io/kaggle-private-byod/python@sha256:37c64f7dd9c54116ecd1bcc88817c5469b88387388fade02bfa8bf3fc647d461",
+  "machine_shape": "NvidiaTeslaT4"
+}
