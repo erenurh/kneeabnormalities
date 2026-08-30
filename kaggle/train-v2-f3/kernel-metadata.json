@@ -1,0 +1,21 @@
+{
+  "id": "seksenbes/rsna-knee-train-v2-f3",
+  "title": "rsna-knee-train-v2-f3",
+  "code_file": "train_kernel.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": "true",
+  "enable_gpu": "true",
+  "enable_internet": "true",
+  "competition_sources": [
+    "rsna-knee-abnormality-detection"
+  ],
+  "dataset_sources": [
+    "seksenbes/rsna-knee-folds",
+    "seksenbes/rsna-knee-soft-labels"
+  ],
+  "kernel_sources": [
+    "seksenbes/rsna-knee-preprocess-320s24a",
+    "seksenbes/rsna-knee-preprocess-320s24b"
+  ]
+}
