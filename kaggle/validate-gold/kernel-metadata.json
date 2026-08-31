@@ -1,0 +1,28 @@
+{
+  "id": "seksenbes/rsna-knee-validate-gold",
+  "title": "rsna-knee-validate-gold",
+  "code_file": "rsna-knee-validate-gold.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": true,
+  "enable_gpu": true,
+  "enable_tpu": false,
+  "enable_internet": false,
+  "keywords": [
+    "gpu"
+  ],
+  "dataset_sources": [
+    "seksenbes/rsna-knee-folds"
+  ],
+  "kernel_sources": [
+    "seksenbes/rsna-knee-preprocess-320s24a",
+    "seksenbes/rsna-knee-preprocess-320s24b",
+    "seksenbes/rsna-knee-train-v2"
+  ],
+  "competition_sources": [
+    "rsna-knee-abnormality-detection"
+  ],
+  "model_sources": [],
+  "docker_image": "gcr.io/kaggle-private-byod/python@sha256:37c64f7dd9c54116ecd1bcc88817c5469b88387388fade02bfa8bf3fc647d461",
+  "machine_shape": "NvidiaTeslaT4"
+}
