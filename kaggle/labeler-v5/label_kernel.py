@@ -1,8 +1,9 @@
 """LLM report labeler v5 (Qwen3-8B, offline, Kaggle T4x2) — lateral meniscus, lateral OA, PF OA.
 
-v5a (smoke only, exp-33) also covered synovitis and emitted evidence quotes;
-synovitis was dropped (report silence is uninformative for image-derived
-synovitis) and evidence removed to cut generation cost ~3x for the full run.
+v5a (smoke, exp-33) also covered synovitis (dropped: report silence is
+uninformative for image-derived synovitis). v5b (exp-34) removed the evidence
+quote and lost the whole gain, so v5c puts the English evidence quote FIRST
+in each tuple: [evidence, grade, severity].
 
 Targets the four findings that are teacher-limited or model-limited at the
 LB-0.922 checkpoint (gold-58: Synovitis .839, Lateral OA .845, PF OA .876,
@@ -30,7 +31,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 SMOKE = True
 BATCH = 8
-MAX_NEW = 80
+MAX_NEW = 140
 LABELS = ["Lateral Meniscus", "Lateral OA", "PF OA"]
 KEYS = ["lat_men", "lat_oa", "pf_oa"]
 ALL_LABELS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA",
@@ -46,7 +47,8 @@ print("comp root:", COMP[0], "| model root:", MODEL[0])
 
 SYSTEM = """You are an expert musculoskeletal radiologist. Read the knee MRI report (any language: English, Spanish, Turkish, Croatian, Greek, German, Bulgarian, Dutch, French, Bosnian) and assess exactly THREE findings. Ignore everything else in the report.
 
-For each finding output [grade, severity]:
+For each finding output [evidence, grade, severity]. Write the evidence FIRST: the single most relevant report phrase for that finding translated to English (max 8 words), or "" if not mentioned. Then grade and severity.
+
 
 grade (integer 0-4):
 0 = explicitly stated ABSENT / normal / intact for THIS structure or compartment
@@ -75,7 +77,7 @@ pf_oa = PATELLOFEMORAL cartilage: patella (retropatellar) and/or trochlea (patel
 severity (integer 0-100): your probability in percent that the finding is POSITIVE at these strict image-based thresholds: lat_men positive only if a tear reaches the articular surface; lat_oa and pf_oa positive only if >=1 cm of >50%-thickness cartilage loss in that compartment. Borderline is NEGATIVE. A finding never mentioned may still be present; give a low but non-zero probability typical for symptomatic knee MRI patients (roughly: lat_men 10, lat_oa 8, pf_oa 15).
 
 Output ONLY a JSON object, no prose:
-{"lat_men":[g,s],"lat_oa":[g,s],"pf_oa":[g,s]}"""
+{"lat_men":["evidence",g,s],"lat_oa":["evidence",g,s],"pf_oa":["evidence",g,s]}"""
 
 
 def parse(text):
@@ -89,13 +91,19 @@ def parse(text):
         for k in KEYS:
             v = d[k]
             if not isinstance(v, list):
-                v = [v, None, ""]
-            v = list(v) + [None, ""][len(v) - 1:] if len(v) < 3 else v
-            g = int(v[0])
+                v = ["", v, None]
+            v = list(v)
+            if v and isinstance(v[0], str):          # [evidence, g, s]
+                ev, rest = v[0], v[1:]
+            else:                                    # legacy [g, s, evidence]
+                ev = str(v[2]) if len(v) > 2 else ""
+                rest = v[:2]
+            rest = rest + [None] * (2 - len(rest))
+            g = int(rest[0])
             if g not in (0, 1, 2, 3, 4):
                 return None
-            s = min(100, max(0, int(v[1]))) if v[1] is not None else g * 25
-            out.append((g, s, str(v[2])[:120]))
+            s = min(100, max(0, int(rest[1]))) if rest[1] is not None else g * 25
+            out.append((g, s, str(ev)[:120]))
         return out
     except (ValueError, KeyError, TypeError, IndexError):
         return None
