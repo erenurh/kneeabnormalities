@@ -1,0 +1,16 @@
+{
+  "id": "seksenbes/rsna-knee-runtime-harness",
+  "title": "rsna-knee-runtime-harness",
+  "code_file": "harness_kernel.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": "true",
+  "enable_gpu": "true",
+  "enable_internet": "false",
+  "competition_sources": [
+    "rsna-knee-abnormality-detection"
+  ],
+  "kernel_sources": [
+    "seksenbes/rsna-knee-train-v2"
+  ]
+}
