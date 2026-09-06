@@ -14,6 +14,8 @@ used raw. SMOKE=True labels only the 58 gold studies (gate run).
 Output: /kaggle/working/grades_v5.csv.
 """
 import json
+import os
+os.environ.setdefault("PYTORCH_ALLOC_CONF", "expandable_segments:True")
 import re
 import time
 from pathlib import Path
@@ -23,7 +25,7 @@ import torch
 from transformers import AutoModelForCausalLM, AutoTokenizer
 
 SMOKE = True
-BATCH = 16
+BATCH = 8
 MAX_NEW = 260
 LABELS = ["Lateral Meniscus", "Lateral OA", "PF OA", "Synovitis"]
 KEYS = ["lat_men", "lat_oa", "pf_oa", "synovitis"]
