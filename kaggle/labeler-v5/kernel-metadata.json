@@ -1,0 +1,13 @@
+{
+  "id": "seksenbes/rsna-knee-labeler-v5",
+  "title": "rsna-knee-labeler-v5",
+  "code_file": "label_kernel.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": "true",
+  "enable_gpu": "true",
+  "enable_internet": "false",
+  "machine_shape": "NvidiaTeslaT4",
+  "competition_sources": ["rsna-knee-abnormality-detection"],
+  "model_sources": ["qwen-lm/qwen-3/transformers/8b/1"]
+}
