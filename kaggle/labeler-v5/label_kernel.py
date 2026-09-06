@@ -1,4 +1,8 @@
-"""LLM report labeler v5 (Qwen3-8B, offline, Kaggle T4x2) — WEAK-FOUR ONLY.
+"""LLM report labeler v5 (Qwen3-8B, offline, Kaggle T4x2) — lateral meniscus, lateral OA, PF OA.
+
+v5a (smoke only, exp-33) also covered synovitis and emitted evidence quotes;
+synovitis was dropped (report silence is uninformative for image-derived
+synovitis) and evidence removed to cut generation cost ~3x for the full run.
 
 Targets the four findings that are teacher-limited or model-limited at the
 LB-0.922 checkpoint (gold-58: Synovitis .839, Lateral OA .845, PF OA .876,
@@ -26,9 +30,9 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 SMOKE = True
 BATCH = 8
-MAX_NEW = 260
-LABELS = ["Lateral Meniscus", "Lateral OA", "PF OA", "Synovitis"]
-KEYS = ["lat_men", "lat_oa", "pf_oa", "synovitis"]
+MAX_NEW = 80
+LABELS = ["Lateral Meniscus", "Lateral OA", "PF OA"]
+KEYS = ["lat_men", "lat_oa", "pf_oa"]
 ALL_LABELS = ["ACL", "MCL", "Medial Meniscus", "Lateral Meniscus", "Medial OA",
               "Lateral OA", "PF OA", "Effusion", "Synovitis", "Baker's",
               "Contusion", "Fracture"]
@@ -40,9 +44,9 @@ MODEL = sorted(p.parent for p in INPUT.rglob("qwen*/**/config.json")) or \
         sorted(p.parent for p in INPUT.rglob("**/config.json"))
 print("comp root:", COMP[0], "| model root:", MODEL[0])
 
-SYSTEM = """You are an expert musculoskeletal radiologist. Read the knee MRI report (any language: English, Spanish, Turkish, Croatian, Greek, German, Bulgarian, Dutch, French, Bosnian) and assess exactly FOUR findings. Ignore everything else in the report.
+SYSTEM = """You are an expert musculoskeletal radiologist. Read the knee MRI report (any language: English, Spanish, Turkish, Croatian, Greek, German, Bulgarian, Dutch, French, Bosnian) and assess exactly THREE findings. Ignore everything else in the report.
 
-For each finding output [grade, severity, evidence]:
+For each finding output [grade, severity]:
 
 grade (integer 0-4):
 0 = explicitly stated ABSENT / normal / intact for THIS structure or compartment
@@ -68,17 +72,10 @@ pf_oa = PATELLOFEMORAL cartilage: patella (retropatellar) and/or trochlea (patel
  3 = grade 3, deep fissuring or partial-thickness defect >50%, "moderate"
  4 = grade 4, full-thickness defect with exposed bone, "severe / advanced patellofemoral OA"
 
-synovitis = inflamed / thickened / proliferative synovium anywhere in the knee. Synonyms: synovial thickening / hypertrophy / proliferation / enhancement / irregularity, sinovitis, sinovit, sinovyal kalınlaşma / hipertrofi, hipertrofia / engrosamiento sinovial, Synovialitis, Synoviaverdickung, υμενίτιδα, синовит, synoviale verdikking, plica synovialis with inflammation, villonodular synovitis, lipoma arborescens, frond-like synovium, synovial debris / loose bodies with thickening, Hoffa fat-pad synovitis. A plain joint effusion WITHOUT any synovial descriptor is NOT synovitis (leave synovitis at 1).
- 2 = mild / minimal / possible / "some synovial thickening"
- 3 = definite / moderate synovitis, synovial hypertrophy
- 4 = marked / severe / diffuse / villonodular / extensive proliferation
-
-severity (integer 0-100): your probability in percent that the finding is POSITIVE at these strict image-based thresholds: lat_men positive only if a tear reaches the articular surface; lat_oa and pf_oa positive only if >=1 cm of >50%-thickness cartilage loss in that compartment; synovitis positive if synovial thickening / proliferation is visible. Borderline is NEGATIVE. A finding never mentioned may still be present; give a low but non-zero probability typical for symptomatic knee MRI patients (roughly: lat_men 10, lat_oa 8, pf_oa 15, synovitis 25).
-
-evidence: the single most relevant report phrase for that finding, translated to English, max 12 words, or "" if not mentioned.
+severity (integer 0-100): your probability in percent that the finding is POSITIVE at these strict image-based thresholds: lat_men positive only if a tear reaches the articular surface; lat_oa and pf_oa positive only if >=1 cm of >50%-thickness cartilage loss in that compartment. Borderline is NEGATIVE. A finding never mentioned may still be present; give a low but non-zero probability typical for symptomatic knee MRI patients (roughly: lat_men 10, lat_oa 8, pf_oa 15).
 
 Output ONLY a JSON object, no prose:
-{"lat_men":[g,s,"evidence"],"lat_oa":[g,s,"evidence"],"pf_oa":[g,s,"evidence"],"synovitis":[g,s,"evidence"]}"""
+{"lat_men":[g,s],"lat_oa":[g,s],"pf_oa":[g,s]}"""
 
 
 def parse(text):
@@ -142,7 +139,7 @@ def main():
             print(f"{done} elapsed={el:.0f}s per_report={el/done:.2f}s", flush=True)
 
     res = pd.DataFrame({"StudyInstanceUID": tr["StudyInstanceUID"].values})
-    vals = [r["vals"] or [(1, 25, "")] * 4 for r in rows]
+    vals = [r["vals"] or [(1, 25, "")] * len(KEYS) for r in rows]
     res[LABELS] = pd.DataFrame([[g for g, _, _ in v] for v in vals], index=res.index)
     res[[c + "_sev" for c in LABELS]] = pd.DataFrame(
         [[s for _, s, _ in v] for v in vals], index=res.index)

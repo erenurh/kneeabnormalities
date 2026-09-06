@@ -55,9 +55,10 @@ def main(wd):
     v3 = pd.read_csv(wd / "lab" / "grades.csv").set_index("StudyInstanceUID")
     v5 = pd.read_csv(wd / "grades_v5.csv").set_index("StudyInstanceUID")
     idx = gold.index.intersection(v5.index)
+    weak = [c for c in WEAK if c in v5.columns]
     print(f"gold n={len(idx)}  v5 parse_ok={v5.loc[idx, 'parse_ok'].mean():.3f}")
     rows = []
-    for c in WEAK:
+    for c in weak:
         y = (gold.loc[idx, c] >= 0.5).astype(int).values
         cand = {
             "soft": soft.loc[idx, c].values,
@@ -78,10 +79,10 @@ def main(wd):
     print()
     print(df[df.set.isin(["soft", "v5sev", "blend"])].to_string(index=False))
     # grade distribution + a few evidence quotes for eyeballing
-    for c in WEAK:
+    for c in weak:
         print(f"\n{c} v5 grade dist on gold:",
               v5.loc[idx, c].value_counts().sort_index().to_dict())
-        ev = v5.loc[idx, [c, c + "_sev", c + "_ev"]].copy()
+        ev = v5.loc[idx, [c, c + "_sev"] + ([c + "_ev"] if c + "_ev" in v5.columns else [])].copy()
         ev["gold"] = gold.loc[idx, c].values
         print(ev.sort_values(c + "_sev", ascending=False).head(6).to_string())
 
