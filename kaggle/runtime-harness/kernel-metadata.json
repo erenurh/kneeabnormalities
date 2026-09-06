@@ -12,5 +12,6 @@
   ],
   "kernel_sources": [
     "seksenbes/rsna-knee-train-v2"
-  ]
+  ],
+  "machine_shape": "NvidiaTeslaT4"
 }

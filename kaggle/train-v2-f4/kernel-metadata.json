@@ -17,5 +17,6 @@
   "kernel_sources": [
     "seksenbes/rsna-knee-preprocess-320s24a",
     "seksenbes/rsna-knee-preprocess-320s24b"
-  ]
+  ],
+  "machine_shape": "NvidiaTeslaT4"
 }
