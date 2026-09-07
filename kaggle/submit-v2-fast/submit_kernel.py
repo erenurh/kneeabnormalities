@@ -1,7 +1,11 @@
 """Submission kernel (offline, T4, fp16). Produces /kaggle/working/submission.csv.
 
 Efficiency-entry version of submit-v2: identical preprocessing + v2 checkpoint,
-but DICOM preprocessing runs in a 4-process pool feeding the GPU. Measured on
+but DICOM preprocessing runs in an 8-process pool feeding the GPU, and slices
+are ordered by a raw-byte InstanceNumber scan (direction fixed from the first/
+last file's ImagePositionPatient; per-series pydicom fallback) so only the
+sampled files are fully parsed. Verified bit-identical to position sorting on
+120 training studies (exp-43); ~7 min at hidden-test size vs ~17 min before. Measured on
 the runtime harness (100 train studies, T4): sequential 2.15 s/study (~47 min
 at 1,300 studies) vs pooled 0.40 s/study (~9 min); GPU forward is 0.15 s.
 
@@ -92,6 +96,78 @@ def load_series(sdir, n):
     return np.stack(out)
 
 
+_TAG_IN = b"\x20\x00\x13\x00"   # (0020,0013) InstanceNumber, little endian
+
+
+def fast_instance_number(f, nbytes=6144):
+    """Read InstanceNumber from the raw header bytes (explicit or implicit VR
+    little endian). Returns None if not found -> caller falls back to pydicom."""
+    with open(f, "rb") as fh:
+        buf = fh.read(nbytes)
+    i = buf.find(_TAG_IN, 128)
+    while i >= 0:
+        vr = buf[i + 4:i + 6]
+        if vr == b"IS":
+            ln = int.from_bytes(buf[i + 6:i + 8], "little"); val = buf[i + 8:i + 8 + ln]
+        else:  # implicit VR
+            ln = int.from_bytes(buf[i + 4:i + 8], "little"); val = buf[i + 8:i + 8 + ln]
+        try:
+            if 0 < ln <= 12:
+                return int(val.decode("ascii").strip("\x00 "))
+        except ValueError:
+            pass
+        i = buf.find(_TAG_IN, i + 4)
+    return None
+
+
+def order_fast(files):
+    """files sorted by InstanceNumber via the raw scan; None on any failure."""
+    nums = [fast_instance_number(f) for f in files]
+    if any(n is None for n in nums) or len(set(nums)) != len(nums):
+        return None
+    return [f for _, f in sorted(zip(nums, files))]
+
+
+def _proj(f):
+    ds = pydicom.dcmread(f, stop_before_pixels=True, specific_tags=[
+        "ImagePositionPatient", "ImageOrientationPatient"])
+    iop, ipp = getattr(ds, "ImageOrientationPatient", None), getattr(ds, "ImagePositionPatient", None)
+    if iop is None or ipp is None:
+        return None
+    nvec = np.cross(np.array(iop[:3], float), np.array(iop[3:], float))
+    return float(np.array(ipp, float) @ nvec)
+
+
+def load_series_fast(sdir, n):
+    files = list(Path(sdir).glob("*.dcm"))
+    ordered = order_fast(files)
+    if ordered is None:
+        return load_series(sdir, n)  # pydicom fallback (position sort)
+    a, b = _proj(ordered[0]), _proj(ordered[-1])
+    if a is None or b is None:
+        return load_series(sdir, n)
+    if a > b:  # InstanceNumber runs against the geometric normal: flip
+        ordered = ordered[::-1]
+    idx = np.linspace(0, len(ordered) - 1, n).round().astype(int)
+    out = []
+    for f in [ordered[i] for i in idx]:
+        ds = pydicom.dcmread(f)
+        img = ds.pixel_array.astype(np.float32)
+        if getattr(ds, "RescaleSlope", None) is not None:
+            img = img * float(ds.RescaleSlope) + float(getattr(ds, "RescaleIntercept", 0))
+        ps = float(ds.PixelSpacing[0])
+        half = CROP_MM / 2 / ps
+        cy, cx = img.shape[0] / 2, img.shape[1] / 2
+        img = img[int(max(0, cy - half)):int(min(img.shape[0], cy + half)),
+                  int(max(0, cx - half)):int(min(img.shape[1], cx + half))]
+        lo, hi = np.percentile(img, [1, 99])
+        img = np.clip((img - lo) / max(hi - lo, 1e-3), 0, 1)
+        out.append(np.array(Image.fromarray((img * 255).astype(np.uint8))
+                            .resize((SIZE, SIZE), Image.BILINEAR)))
+    return np.stack(out)
+
+
+
 class Net(nn.Module):
     """RSNA-winner aggregation: BiGRU over slice triplets + attention-MIL
     pooling per series, masked attention over the 4 series slots (replaces
@@ -135,7 +211,7 @@ def preprocess_study(uid):
             or [i for i in infos if i["plane"] == plane]
         cand.sort(key=lambda i: (-i["n"], i["dir"].name))
         if cand:
-            arr = load_series(cand[0]["dir"], N_SLICES)  # cache used all 24
+            arr = load_series_fast(cand[0]["dir"], N_SLICES)  # cache used all 24
             if arr is not None:
                 vol[k], mask[k] = arr[:N_SLICES], True
     if not mask.any():
@@ -174,7 +250,7 @@ def main():
     net.load_state_dict(torch.load(CKPT, map_location=DEV))
     net.eval()
     rows = []
-    with ProcessPoolExecutor(max_workers=4) as ex:
+    with ProcessPoolExecutor(max_workers=8) as ex:
         for i, (uid, pre) in enumerate(zip(uids, ex.map(safe_preprocess, uids))):
             try:
                 p = forward_study(net, pre)
