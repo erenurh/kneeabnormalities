@@ -41,7 +41,7 @@ INPUT = Path("/kaggle/input")
 COMP = (sorted(p.parent for p in INPUT.glob("*/train_series.csv"))
         or sorted(p.parent for p in INPUT.glob("*/*/train_series.csv")))[0]
 SPLIT = "train_series"  # harness reads training studies
-N_STUDIES = 100
+N_STUDIES = 60
 HIDDEN_N = 1300  # approx hidden test size for extrapolation
 CKPT = sorted(INPUT.rglob("effv2s_v2_all.pt"))[0]
 DEV = "cuda" if torch.cuda.is_available() else "cpu"
@@ -165,49 +165,37 @@ def forward_study(net, pre):
 
 
 def main():
+    """Speed pass: pooled preprocessing cost per input config (DICOM reads
+    dominate; GPU forward is ~0.15 s). Configs vary slices/slot, slot count
+    and resize; each measured on the same N_STUDIES with a 4-process pool."""
     import statistics
     from concurrent.futures import ProcessPoolExecutor
-    print("device", DEV, torch.cuda.get_device_name(0) if DEV == "cuda" else "")
-    t_load0 = time.time()
-    net = Net().to(DEV)
-    net.load_state_dict(torch.load(CKPT, map_location=DEV))
-    net.eval()
-    print(f"model load {time.time()-t_load0:.1f}s")
+    global N_SLICES, SIZE, SLOTS
     uids = sorted(pd.read_csv(COMP / "train.csv")["StudyInstanceUID"])[:N_STUDIES]
-
-    # (A) sequential, exactly as submit-v2 does it
-    t_io, t_fw = [], []
-    tA0 = time.time()
-    for i, uid in enumerate(uids):
-        a = time.time()
-        pre = preprocess_study(uid)
-        b = time.time()
-        forward_study(net, pre)
-        if DEV == "cuda":
+    S6 = [("Sagittal", True), ("Sagittal", False), ("Coronal", True),
+          ("Coronal", False), ("Axial", True), ("Axial", False)]
+    S4 = [("Sagittal", True), ("Sagittal", False), ("Coronal", True), ("Axial", True)]
+    configs = [("4x24@320 (current)", S4, 24, 320), ("6x16@320", S6, 16, 320),
+               ("4x16@320", S4, 16, 320), ("4x12@320", S4, 12, 320),
+               ("6x12@320", S6, 12, 320), ("6x16@256", S6, 16, 256),
+               ("4x24@256", S4, 24, 256)]
+    for name, slots, ns, sz in configs:
+        SLOTS, N_SLICES, SIZE = slots, ns, sz
+        t0 = time.time()
+        with ProcessPoolExecutor(max_workers=4) as ex:
+            n_ok = sum(p is not None for p in ex.map(preprocess_study, uids))
+        dt = time.time() - t0
+        print(f"{name:20s} pool4 {dt/len(uids):.3f} s/study -> {HIDDEN_N}: {dt/len(uids)*HIDDEN_N/60:.1f} min  (ok {n_ok})", flush=True)
+    # GPU forward cost of the v2 net per study at 4x24@320 vs 6x16@320-shaped input (same triplet count)
+    net = Net().to(DEV); net.eval()
+    for name, k, n, sz in [("fwd 4x24@320", 4, 24, 320), ("fwd 6x16@320", 6, 16, 320), ("fwd 6x16@256", 6, 16, 256), ("fwd 4x12@320", 4, 12, 320)]:
+        x = torch.rand(1, k, n, sz, sz, device=DEV); m = torch.ones(1, k, dtype=torch.bool, device=DEV); s = torch.zeros(1, device=DEV)
+        with torch.no_grad(), torch.amp.autocast("cuda"):
+            for _ in range(3): net.enc(x.view(k * (n // 3), 3, sz, sz))
+            torch.cuda.synchronize(); t0 = time.time()
+            for _ in range(10): net.enc(x.view(k * (n // 3), 3, sz, sz))
             torch.cuda.synchronize()
-        c = time.time()
-        t_io.append(b - a); t_fw.append(c - b)
-        if i % 20 == 0:
-            print(f"A {i} io={b-a:.2f}s fwd={c-b:.2f}s", flush=True)
-    tA = time.time() - tA0
-    print(f"A sequential: {tA:.0f}s for {len(uids)} studies = {tA/len(uids):.2f}s/study "
-          f"(io median {statistics.median(t_io):.2f}s, fwd median {statistics.median(t_fw):.2f}s, "
-          f"fwd first {t_fw[0]:.2f}s) -> hidden {HIDDEN_N}: ~{tA/len(uids)*HIDDEN_N/60:.1f} min")
-
-    # (B) 4-process DICOM preprocessing pool feeding the GPU
-    tB0 = time.time()
-    n_done = 0
-    with ProcessPoolExecutor(max_workers=4) as ex:
-        for pre in ex.map(preprocess_study, uids):
-            forward_study(net, pre)
-            n_done += 1
-    if DEV == "cuda":
-        torch.cuda.synchronize()
-    tB = time.time() - tB0
-    print(f"B pool4+gpu: {tB:.0f}s for {n_done} studies = {tB/n_done:.2f}s/study "
-          f"-> hidden {HIDDEN_N}: ~{tB/n_done*HIDDEN_N/60:.1f} min")
-    print(f"runtime term at hidden size: A {tA/len(uids)*HIDDEN_N/32400:.4f}  "
-          f"B {tB/n_done*HIDDEN_N/32400:.4f}  (0.01 AUC ~ 0.0222)")
+        print(f"{name:16s} encoder {(time.time()-t0)/10:.3f} s/study", flush=True)
 
 
 if __name__ == "__main__":
