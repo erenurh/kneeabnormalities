@@ -164,43 +164,58 @@ def forward_study(net, pre):
 
 
 
+def _prep_threaded(uid, n_threads=4):
+    """preprocess_study with the per-slot series loads parallelised in threads."""
+    from concurrent.futures import ThreadPoolExecutor
+    infos = [si for sd in sorted((COMP / SPLIT / uid).iterdir())
+             if (si := series_info(sd)) is not None]
+    vol = np.zeros((len(SLOTS), N_SLICES, SIZE, SIZE), np.uint8)
+    mask = np.zeros(len(SLOTS), bool)
+    picks = []
+    for k, (plane, want_fs) in enumerate(SLOTS):
+        cand = [i for i in infos if i["plane"] == plane and i["fatsat"] == want_fs] \
+            or [i for i in infos if i["plane"] == plane]
+        cand.sort(key=lambda i: (-i["n"], i["dir"].name))
+        if cand:
+            picks.append((k, cand[0]["dir"]))
+    with ThreadPoolExecutor(max_workers=n_threads) as ex:
+        for (k, _), arr in zip(picks, ex.map(lambda p: load_series(p[1], N_SLICES), picks)):
+            if arr is not None:
+                vol[k], mask[k] = arr[:N_SLICES], True
+    if not mask.any():
+        return None
+    return vol, mask, float(any(i["sex"] == "M" for i in infos))
+
+
+def _prep_t4(uid):
+    return _prep_threaded(uid, 4)
+
+
+def _prep_t8(uid):
+    return _prep_threaded(uid, 8)
+
+
 def main():
-    """Speed pass: pooled preprocessing cost per input config (DICOM reads
-    dominate; GPU forward is ~0.15 s). Configs vary slices/slot, slot count
-    and resize; each measured on the same N_STUDIES with a 4-process pool."""
-    import statistics
-    from concurrent.futures import ProcessPoolExecutor
-    global N_SLICES, SIZE, SLOTS
+    """Concurrency pass at the current 4x24@320 config (cold cache, disjoint
+    subsets): process-pool size x per-study series threads."""
+    from concurrent.futures import ProcessPoolExecutor, ThreadPoolExecutor
+    import os
+    print("cpus", os.cpu_count(), flush=True)
     all_uids = sorted(pd.read_csv(COMP / "train.csv")["StudyInstanceUID"])
-    # cold-cache measurement: each config gets its own disjoint study subset so
-    # no config benefits from files another config already pulled into the
-    # OS page cache (the hidden-test rerun reads everything cold)
-    S6 = [("Sagittal", True), ("Sagittal", False), ("Coronal", True),
-          ("Coronal", False), ("Axial", True), ("Axial", False)]
-    S4 = [("Sagittal", True), ("Sagittal", False), ("Coronal", True), ("Axial", True)]
-    configs = [("4x24@320 (current)", S4, 24, 320), ("6x16@320", S6, 16, 320),
-               ("4x16@320", S4, 16, 320), ("4x12@320", S4, 12, 320),
-               ("6x12@320", S6, 12, 320), ("6x16@256", S6, 16, 256),
-               ("4x24@256", S4, 24, 256)]
-    for ci, (name, slots, ns, sz) in enumerate(configs):
-        SLOTS, N_SLICES, SIZE = slots, ns, sz
-        uids = all_uids[100 + ci * N_STUDIES: 100 + (ci + 1) * N_STUDIES]
+    variants = [("pool4", 4, preprocess_study, "proc"), ("pool8", 8, preprocess_study, "proc"),
+                ("pool16", 16, preprocess_study, "proc"),
+                ("pool4 x 4thr", 4, _prep_t4, "proc"), ("pool8 x 4thr", 8, _prep_t4, "proc"),
+                ("pool4 x 8thr", 4, _prep_t8, "proc"),
+                ("threads16 flat", 16, preprocess_study, "thread"),
+                ("threads32 flat", 32, preprocess_study, "thread")]
+    for vi, (name, nw, fn, kind) in enumerate(variants):
+        uids = all_uids[600 + vi * N_STUDIES: 600 + (vi + 1) * N_STUDIES]
+        Ex = ProcessPoolExecutor if kind == "proc" else ThreadPoolExecutor
         t0 = time.time()
-        with ProcessPoolExecutor(max_workers=4) as ex:
-            n_ok = sum(p is not None for p in ex.map(preprocess_study, uids))
+        with Ex(max_workers=nw) as ex:
+            n_ok = sum(p is not None for p in ex.map(fn, uids))
         dt = time.time() - t0
-        print(f"{name:20s} pool4 {dt/len(uids):.3f} s/study -> {HIDDEN_N}: {dt/len(uids)*HIDDEN_N/60:.1f} min  (ok {n_ok})", flush=True)
-    # GPU forward cost of the v2 net per study at 4x24@320 vs 6x16@320-shaped input (same triplet count)
-    net = Net().to(DEV); net.eval()
-    for name, k, n, sz in [("fwd 4x24@320", 4, 24, 320), ("fwd 6x16@320", 6, 16, 320), ("fwd 6x16@256", 6, 16, 256), ("fwd 4x12@320", 4, 12, 320)]:
-        n = n - n % 3  # triplets use the first 3*floor(n/3) slices (24->24, 16->15, 12->12)
-        x = torch.rand(k * (n // 3), 3, sz, sz, device=DEV)
-        with torch.no_grad(), torch.amp.autocast("cuda"):
-            for _ in range(3): net.enc(x)
-            torch.cuda.synchronize(); t0 = time.time()
-            for _ in range(10): net.enc(x)
-            torch.cuda.synchronize()
-        print(f"{name:16s} encoder {(time.time()-t0)/10:.3f} s/study", flush=True)
+        print(f"{name:16s} {dt/len(uids):.3f} s/study -> {HIDDEN_N}: {dt/len(uids)*HIDDEN_N/60:.1f} min (ok {n_ok})", flush=True)
 
 
 if __name__ == "__main__":
