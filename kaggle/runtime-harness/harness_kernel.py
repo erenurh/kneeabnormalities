@@ -223,50 +223,127 @@ def preprocess_byname(uid):
     return vol, mask, float(any(i["sex"] == "M" for i in infos))
 
 
-def check_order(uid):
-    """Per series: does filename order equal position order (or its reverse)?"""
+_TAG_IN = b"\x20\x00\x13\x00"   # (0020,0013) InstanceNumber, little endian
+
+
+def fast_instance_number(f, nbytes=6144):
+    """Read InstanceNumber from the raw header bytes (explicit or implicit VR
+    little endian). Returns None if not found -> caller falls back to pydicom."""
+    with open(f, "rb") as fh:
+        buf = fh.read(nbytes)
+    i = buf.find(_TAG_IN, 128)
+    while i >= 0:
+        vr = buf[i + 4:i + 6]
+        if vr == b"IS":
+            ln = int.from_bytes(buf[i + 6:i + 8], "little"); val = buf[i + 8:i + 8 + ln]
+        else:  # implicit VR
+            ln = int.from_bytes(buf[i + 4:i + 8], "little"); val = buf[i + 8:i + 8 + ln]
+        try:
+            if 0 < ln <= 12:
+                return int(val.decode("ascii").strip("\x00 "))
+        except ValueError:
+            pass
+        i = buf.find(_TAG_IN, i + 4)
+    return None
+
+
+def order_fast(files):
+    """files sorted by InstanceNumber via the raw scan; None on any failure."""
+    nums = [fast_instance_number(f) for f in files]
+    if any(n is None for n in nums) or len(set(nums)) != len(nums):
+        return None
+    return [f for _, f in sorted(zip(nums, files))]
+
+
+def load_series_fast(sdir, n):
+    files = list(Path(sdir).glob("*.dcm"))
+    ordered = order_fast(files)
+    if ordered is None:
+        return load_series(sdir, n)  # pydicom fallback (position sort)
+    idx = np.linspace(0, len(ordered) - 1, n).round().astype(int)
+    out = []
+    for f in [ordered[i] for i in idx]:
+        ds = pydicom.dcmread(f)
+        img = ds.pixel_array.astype(np.float32)
+        if getattr(ds, "RescaleSlope", None) is not None:
+            img = img * float(ds.RescaleSlope) + float(getattr(ds, "RescaleIntercept", 0))
+        ps = float(ds.PixelSpacing[0])
+        half = CROP_MM / 2 / ps
+        cy, cx = img.shape[0] / 2, img.shape[1] / 2
+        img = img[int(max(0, cy - half)):int(min(img.shape[0], cy + half)),
+                  int(max(0, cx - half)):int(min(img.shape[1], cx + half))]
+        lo, hi = np.percentile(img, [1, 99])
+        img = np.clip((img - lo) / max(hi - lo, 1e-3), 0, 1)
+        out.append(np.array(Image.fromarray((img * 255).astype(np.uint8))
+                            .resize((SIZE, SIZE), Image.BILINEAR)))
+    return np.stack(out)
+
+
+def preprocess_fast(uid):
+    infos = [si for sd in sorted((COMP / SPLIT / uid).iterdir())
+             if (si := series_info(sd)) is not None]
+    vol = np.zeros((len(SLOTS), N_SLICES, SIZE, SIZE), np.uint8)
+    mask = np.zeros(len(SLOTS), bool)
+    for k, (plane, want_fs) in enumerate(SLOTS):
+        cand = [i for i in infos if i["plane"] == plane and i["fatsat"] == want_fs] \
+            or [i for i in infos if i["plane"] == plane]
+        cand.sort(key=lambda i: (-i["n"], i["dir"].name))
+        if cand:
+            arr = load_series_fast(cand[0]["dir"], N_SLICES)
+            if arr is not None:
+                vol[k], mask[k] = arr[:N_SLICES], True
+    if not mask.any():
+        return None
+    return vol, mask, float(any(i["sex"] == "M" for i in infos))
+
+
+def validate_study(uid):
+    """Per series: fast order == pydicom position order (or reverse)? plus
+    whether the fast scan failed. Also checks the slice SAMPLE is identical."""
     res = []
     for sd in sorted((COMP / SPLIT / uid).iterdir()):
-        files = sorted(Path(sd).glob("*.dcm"), key=_name_key)
+        files = list(Path(sd).glob("*.dcm"))
         if len(files) < 3:
             continue
-        pos, inst = _pos_order(files)
+        fast = order_fast(files)
+        pos, _ = _pos_order(files)
         if pos is None:
-            res.append(("nogeom", len(files))); continue
-        same = pos == files or pos == files[::-1]
-        inst_mono = inst == sorted(inst) or inst == sorted(inst, reverse=True)
-        res.append(("match" if same else "mismatch", len(files), inst_mono, files[0].name))
+            res.append("nogeom"); continue
+        if fast is None:
+            res.append("scanfail"); continue
+        if fast == pos:
+            res.append("match")
+        elif fast == pos[::-1]:
+            res.append("reversed")
+        else:
+            res.append("mismatch")
     return res
 
 
 def main():
     from concurrent.futures import ProcessPoolExecutor
+    from collections import Counter
     global N_SLICES, SIZE, SLOTS
     all_uids = sorted(pd.read_csv(COMP / "train.csv")["StudyInstanceUID"])
-    # 1) how often does filename order == position order?
-    tot = {"match": 0, "mismatch": 0, "nogeom": 0}; ex_names = []
+    tot = Counter()
     with ProcessPoolExecutor(max_workers=8) as ex:
-        for r in ex.map(check_order, all_uids[1200:1400]):
-            for item in r:
-                tot[item[0]] += 1
-                if item[0] == "mismatch" and len(ex_names) < 5:
-                    ex_names.append(item)
-    print("filename-vs-position order over 200 studies:", tot, "examples:", ex_names, flush=True)
-    # 2) cost: pool8, position-ordered (current) vs filename-ordered (only sampled files opened)
+        for r in ex.map(validate_study, all_uids[2000:2300]):
+            tot.update(r)
+    print("fast InstanceNumber order vs pydicom position order, 300 studies:", dict(tot), flush=True)
     S4 = [("Sagittal", True), ("Sagittal", False), ("Coronal", True), ("Axial", True)]
     S6 = [("Sagittal", True), ("Sagittal", False), ("Coronal", True),
           ("Coronal", False), ("Axial", True), ("Axial", False)]
-    variants = [("4x24 pos", S4, 24, preprocess_study), ("4x24 byname", S4, 24, preprocess_byname),
-                ("4x12 byname", S4, 12, preprocess_byname), ("6x16 byname", S6, 16, preprocess_byname),
-                ("4x16 byname", S4, 16, preprocess_byname), ("4x12 pos", S4, 12, preprocess_study)]
+    variants = [("4x24 pos", S4, 24, preprocess_study), ("4x24 fast", S4, 24, preprocess_fast),
+                ("4x16 fast", S4, 16, preprocess_fast), ("4x12 fast", S4, 12, preprocess_fast),
+                ("6x16 fast", S6, 16, preprocess_fast), ("6x12 fast", S6, 12, preprocess_fast)]
     for vi, (name, slots, ns, fn) in enumerate(variants):
         SLOTS, N_SLICES, SIZE = slots, ns, 320
-        uids = all_uids[1500 + vi * N_STUDIES: 1500 + (vi + 1) * N_STUDIES]
+        uids = all_uids[2400 + vi * N_STUDIES: 2400 + (vi + 1) * N_STUDIES]
         t0 = time.time()
         with ProcessPoolExecutor(max_workers=8) as ex:
             n_ok = sum(p is not None for p in ex.map(fn, uids))
         dt = time.time() - t0
-        print(f"{name:14s} pool8 {dt/len(uids):.3f} s/study -> {HIDDEN_N}: {dt/len(uids)*HIDDEN_N/60:.1f} min (ok {n_ok})", flush=True)
+        print(f"{name:12s} pool8 {dt/len(uids):.3f} s/study -> {HIDDEN_N}: {dt/len(uids)*HIDDEN_N/60:.1f} min (ok {n_ok})", flush=True)
 
 
 if __name__ == "__main__":
