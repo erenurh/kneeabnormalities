@@ -171,7 +171,10 @@ def main():
     import statistics
     from concurrent.futures import ProcessPoolExecutor
     global N_SLICES, SIZE, SLOTS
-    uids = sorted(pd.read_csv(COMP / "train.csv")["StudyInstanceUID"])[:N_STUDIES]
+    all_uids = sorted(pd.read_csv(COMP / "train.csv")["StudyInstanceUID"])
+    # cold-cache measurement: each config gets its own disjoint study subset so
+    # no config benefits from files another config already pulled into the
+    # OS page cache (the hidden-test rerun reads everything cold)
     S6 = [("Sagittal", True), ("Sagittal", False), ("Coronal", True),
           ("Coronal", False), ("Axial", True), ("Axial", False)]
     S4 = [("Sagittal", True), ("Sagittal", False), ("Coronal", True), ("Axial", True)]
@@ -179,8 +182,9 @@ def main():
                ("4x16@320", S4, 16, 320), ("4x12@320", S4, 12, 320),
                ("6x12@320", S6, 12, 320), ("6x16@256", S6, 16, 256),
                ("4x24@256", S4, 24, 256)]
-    for name, slots, ns, sz in configs:
+    for ci, (name, slots, ns, sz) in enumerate(configs):
         SLOTS, N_SLICES, SIZE = slots, ns, sz
+        uids = all_uids[100 + ci * N_STUDIES: 100 + (ci + 1) * N_STUDIES]
         t0 = time.time()
         with ProcessPoolExecutor(max_workers=4) as ex:
             n_ok = sum(p is not None for p in ex.map(preprocess_study, uids))
@@ -189,11 +193,12 @@ def main():
     # GPU forward cost of the v2 net per study at 4x24@320 vs 6x16@320-shaped input (same triplet count)
     net = Net().to(DEV); net.eval()
     for name, k, n, sz in [("fwd 4x24@320", 4, 24, 320), ("fwd 6x16@320", 6, 16, 320), ("fwd 6x16@256", 6, 16, 256), ("fwd 4x12@320", 4, 12, 320)]:
-        x = torch.rand(1, k, n, sz, sz, device=DEV); m = torch.ones(1, k, dtype=torch.bool, device=DEV); s = torch.zeros(1, device=DEV)
+        n = n - n % 3  # triplets use the first 3*floor(n/3) slices (24->24, 16->15, 12->12)
+        x = torch.rand(k * (n // 3), 3, sz, sz, device=DEV)
         with torch.no_grad(), torch.amp.autocast("cuda"):
-            for _ in range(3): net.enc(x.view(k * (n // 3), 3, sz, sz))
+            for _ in range(3): net.enc(x)
             torch.cuda.synchronize(); t0 = time.time()
-            for _ in range(10): net.enc(x.view(k * (n // 3), 3, sz, sz))
+            for _ in range(10): net.enc(x)
             torch.cuda.synchronize()
         print(f"{name:16s} encoder {(time.time()-t0)/10:.3f} s/study", flush=True)
 
