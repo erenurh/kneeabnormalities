@@ -104,6 +104,22 @@ class Net(nn.Module):
         return (o * self.cls_w).sum(-1) + self.cls_b          # (b,12)
 
 
+def per_finding_auc(y_true, y_pred, threshold=0.5):
+    from sklearn.metrics import roc_auc_score
+    out = {}
+    for j, c in enumerate(LABELS):
+        t, p = y_true[:, j], y_pred[:, j]
+        tb = (t >= threshold).astype(int)
+        out[c] = roc_auc_score(tb, p) if 0 < tb.mean() < 1 else float("nan")
+    return out
+
+
+def macro_auc(y_true, y_pred, threshold=0.5):
+    vals = [v for v in per_finding_auc(y_true, y_pred, threshold).values()
+            if not np.isnan(v)]
+    return float(np.mean(vals))
+
+
 def gold_anchor(y_true, y_pred, n_boot=2000, seed=0):
     rng = np.random.default_rng(seed)
     n = len(y_true)
