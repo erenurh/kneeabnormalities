@@ -255,11 +255,26 @@ def order_fast(files):
     return [f for _, f in sorted(zip(nums, files))]
 
 
+def _proj(f):
+    ds = pydicom.dcmread(f, stop_before_pixels=True, specific_tags=[
+        "ImagePositionPatient", "ImageOrientationPatient"])
+    iop, ipp = getattr(ds, "ImageOrientationPatient", None), getattr(ds, "ImagePositionPatient", None)
+    if iop is None or ipp is None:
+        return None
+    nvec = np.cross(np.array(iop[:3], float), np.array(iop[3:], float))
+    return float(np.array(ipp, float) @ nvec)
+
+
 def load_series_fast(sdir, n):
     files = list(Path(sdir).glob("*.dcm"))
     ordered = order_fast(files)
     if ordered is None:
         return load_series(sdir, n)  # pydicom fallback (position sort)
+    a, b = _proj(ordered[0]), _proj(ordered[-1])
+    if a is None or b is None:
+        return load_series(sdir, n)
+    if a > b:  # InstanceNumber runs against the geometric normal: flip
+        ordered = ordered[::-1]
     idx = np.linspace(0, len(ordered) - 1, n).round().astype(int)
     out = []
     for f in [ordered[i] for i in idx]:
@@ -297,27 +312,11 @@ def preprocess_fast(uid):
     return vol, mask, float(any(i["sex"] == "M" for i in infos))
 
 
-def validate_study(uid):
-    """Per series: fast order == pydicom position order (or reverse)? plus
-    whether the fast scan failed. Also checks the slice SAMPLE is identical."""
-    res = []
-    for sd in sorted((COMP / SPLIT / uid).iterdir()):
-        files = list(Path(sd).glob("*.dcm"))
-        if len(files) < 3:
-            continue
-        fast = order_fast(files)
-        pos, _ = _pos_order(files)
-        if pos is None:
-            res.append("nogeom"); continue
-        if fast is None:
-            res.append("scanfail"); continue
-        if fast == pos:
-            res.append("match")
-        elif fast == pos[::-1]:
-            res.append("reversed")
-        else:
-            res.append("mismatch")
-    return res
+def _equal_check(uid):
+    a, b = preprocess_study(uid), preprocess_fast(uid)
+    if a is None or b is None:
+        return ("none", 0.0)
+    return ("ok", float(np.abs(a[0].astype(int) - b[0].astype(int)).max()) if (a[1] == b[1]).all() else ("maskdiff", 999.0))
 
 
 def main():
@@ -325,25 +324,22 @@ def main():
     from collections import Counter
     global N_SLICES, SIZE, SLOTS
     all_uids = sorted(pd.read_csv(COMP / "train.csv")["StudyInstanceUID"])
-    tot = Counter()
+    SLOTS = [("Sagittal", True), ("Sagittal", False), ("Coronal", True), ("Axial", True)]
+    N_SLICES, SIZE = 24, 320
+    st, diffs = Counter(), []
     with ProcessPoolExecutor(max_workers=8) as ex:
-        for r in ex.map(validate_study, all_uids[2000:2300]):
-            tot.update(r)
-    print("fast InstanceNumber order vs pydicom position order, 300 studies:", dict(tot), flush=True)
-    S4 = [("Sagittal", True), ("Sagittal", False), ("Coronal", True), ("Axial", True)]
-    S6 = [("Sagittal", True), ("Sagittal", False), ("Coronal", True),
-          ("Coronal", False), ("Axial", True), ("Axial", False)]
-    variants = [("4x24 pos", S4, 24, preprocess_study), ("4x24 fast", S4, 24, preprocess_fast),
-                ("4x16 fast", S4, 16, preprocess_fast), ("4x12 fast", S4, 12, preprocess_fast),
-                ("6x16 fast", S6, 16, preprocess_fast), ("6x12 fast", S6, 12, preprocess_fast)]
-    for vi, (name, slots, ns, fn) in enumerate(variants):
-        SLOTS, N_SLICES, SIZE = slots, ns, 320
-        uids = all_uids[2400 + vi * N_STUDIES: 2400 + (vi + 1) * N_STUDIES]
+        for k, d in ex.map(_equal_check, all_uids[3000:3120]):
+            st[k] += 1; diffs.append(d)
+    print("fast-vs-position volume equality over 120 studies:", dict(st),
+          "max abs uint8 diff:", max(diffs), "n exact:", sum(d == 0 for d in diffs), flush=True)
+    for vi, (name, ns, fn) in enumerate([("4x24 fast+dir", 24, preprocess_fast), ("4x16 fast+dir", 16, preprocess_fast)]):
+        N_SLICES = ns
+        uids = all_uids[3200 + vi * N_STUDIES: 3200 + (vi + 1) * N_STUDIES]
         t0 = time.time()
         with ProcessPoolExecutor(max_workers=8) as ex:
             n_ok = sum(p is not None for p in ex.map(fn, uids))
         dt = time.time() - t0
-        print(f"{name:12s} pool8 {dt/len(uids):.3f} s/study -> {HIDDEN_N}: {dt/len(uids)*HIDDEN_N/60:.1f} min (ok {n_ok})", flush=True)
+        print(f"{name:14s} pool8 {dt/len(uids):.3f} s/study -> {HIDDEN_N}: {dt/len(uids)*HIDDEN_N/60:.1f} min (ok {n_ok})", flush=True)
 
 
 if __name__ == "__main__":
