@@ -27,7 +27,7 @@ from torch.utils.data import DataLoader, Dataset
 
 FOLD = -1  # -1: train on ALL studies (distill targets are OOF-based, leak-free)
 EPOCHS = 10
-SMOKE = True
+SMOKE = False
 UNFREEZE_LAST = 6
 DINO_RES = 336
 LR_BACKBONE = 1e-5
