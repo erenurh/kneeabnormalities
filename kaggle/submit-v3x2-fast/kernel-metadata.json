@@ -1,0 +1,18 @@
+{
+  "id": "seksenbes/rsna-knee-submit-v3x2-fast",
+  "title": "rsna-knee-submit-v3x2-fast",
+  "code_file": "submit_kernel.py",
+  "language": "python",
+  "kernel_type": "script",
+  "is_private": "true",
+  "enable_gpu": "true",
+  "enable_internet": "false",
+  "machine_shape": "NvidiaTeslaT4",
+  "competition_sources": [
+    "rsna-knee-abnormality-detection"
+  ],
+  "kernel_sources": [
+    "seksenbes/rsna-knee-train-v3",
+    "seksenbes/rsna-knee-train-v3-s43"
+  ]
+}
