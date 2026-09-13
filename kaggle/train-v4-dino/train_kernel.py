@@ -1,4 +1,10 @@
-"""v3 = v2 encoder/BiGRU + per-finding query-attention head (single variable vs
+"""v4 = DINOv2-S backbone (HF facebook/dinov2-small; last UNFREEZE_LAST blocks + final
+norm trainable; CLS (+) mean-patch feature at 336px, bilinear 320->336 in the forward)
+under the v3 BiGRU + per-finding query-attention head. Single variable vs train-v3:
+the encoder. Same 4x24 320px cache, r3 targets, batch 2. SMOKE=True: 300 studies, 1 epoch.
+
+Inherited v3 docstring:
+v3 = v2 encoder/BiGRU + per-finding query-attention head (single variable vs
 train-v2-r3: head only; same 4x24 320px cache, r3 targets, 10 ep, batch 2).
 
 High-res distilled training: 320px cache, all-data student (T4, internet ON

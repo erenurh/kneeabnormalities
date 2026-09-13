@@ -1,4 +1,9 @@
-"""v3 = v2 encoder/BiGRU + per-finding query-attention head (single variable vs
+"""v4-full = v4 (DINOv2-S backbone + v3 head) with ALL 12 blocks trainable,
+LR_BACKBONE 3e-5, 12 epochs (exp-59/60: the partial fine-tune was undertrained,
+gold 0.9156).
+
+Inherited v3 docstring:
+v3 = v2 encoder/BiGRU + per-finding query-attention head (single variable vs
 train-v2-r3: head only; same 4x24 320px cache, r3 targets, 10 ep, batch 2).
 
 High-res distilled training: 320px cache, all-data student (T4, internet ON
