@@ -1,4 +1,5 @@
-"""v3 = v2 encoder/BiGRU + per-finding query-attention head (single variable vs\ntrain-v2-r3: head only; same 4x24 320px cache, r3 targets, 10 ep, batch 2).
+"""v3 = v2 encoder/BiGRU + per-finding query-attention head (single variable vs
+train-v2-r3: head only; same 4x24 320px cache, r3 targets, 10 ep, batch 2).
 
 High-res distilled training: 320px cache, all-data student (T4, internet ON
 for timm weights; only the submission notebook must be offline).
